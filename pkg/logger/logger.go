@@ -30,7 +30,7 @@ func NewLogger(cfg *LoggerConfig) *slog.Logger {
 	handler = &TraceIDHandler{handler}
 	logger := slog.New(handler).With(
 		slog.String("service", cfg.ServiceName),
-		slog.String("enviroment", cfg.Environment),
+		slog.String("environment", cfg.Environment),
 	)
 	return logger
 }
