@@ -1,5 +1,10 @@
 env: local
+service: api-gateway
 
 grpc:
   host: localhost
   port: 8000
+
+logger:
+  format: json
+  level: info

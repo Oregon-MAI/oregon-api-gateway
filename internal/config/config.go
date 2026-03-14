@@ -7,8 +7,10 @@ import (
 )
 
 type Config struct {
-	Env  string     `yaml:"env" env-default:"local"`
-	GRPC GRPCConfig `yaml:"grpc"`
+	Env     string       `yaml:"env" env-default:"local"`
+	Service string       `yaml:"service"`
+	GRPC    GRPCConfig   `yaml:"grpc"`
+	Logger  LoggerConfig `yaml:"logger"`
 }
 
 type GRPCConfig struct {
@@ -16,14 +18,18 @@ type GRPCConfig struct {
 	Port int    `yaml:"port" env:"PORT"`
 }
 
+type LoggerConfig struct {
+	Level  string `yaml:"level" env:"LOGGER_LEVEL"`
+	Format string `yaml:"format" env:"LOGGER_FORMAT"`
+}
+
 func MustLoadConfig(path string) *Config {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		panic("config file does not exist: " + path)
 	}
 
-	var cfg *Config
-	err := cleanenv.ReadConfig("config.yml", &cfg)
-	if err != nil {
+	cfg := &Config{}
+	if err := cleanenv.ReadConfig(path, cfg); err != nil {
 		panic("failed to read config: " + err.Error())
 	}
 	return cfg
