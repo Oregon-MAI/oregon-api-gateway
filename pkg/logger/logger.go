@@ -1,36 +1,53 @@
-package logging
+package logger
 
 import (
 	"io"
 	"log/slog"
+	"os"
 )
 
-type LoggerConfig struct {
-	Environment string
+type Config struct {
+	Level       slog.Level
 	ServiceName string
-	Format      string // json or text
 	AddSource   bool
 	Out         io.Writer
-	Level       slog.Leveler
+	Format      string // "json" or "text"
+	Environment string
 }
 
-func NewLogger(cfg *LoggerConfig) *slog.Logger {
-	opts := slog.HandlerOptions{
-		AddSource: cfg.AddSource,
+func New(cfg *Config) *slog.Logger {
+	opts := &slog.HandlerOptions{
 		Level:     cfg.Level,
+		AddSource: cfg.AddSource,
 	}
 
 	var handler slog.Handler
-	if cfg.Format == "json" {
-		handler = slog.NewJSONHandler(cfg.Out, &opts)
-	} else {
-		handler = slog.NewTextHandler(cfg.Out, &opts)
+	out := cfg.Out
+	if out == nil {
+		out = os.Stdout
 	}
 
-	handler = &TraceIDHandler{handler}
-	logger := slog.New(handler).With(
-		slog.String("service", cfg.ServiceName),
-		slog.String("environment", cfg.Environment),
-	)
+	switch cfg.Format {
+	case "json":
+		handler = slog.NewJSONHandler(out, opts)
+	default:
+		handler = slog.NewTextHandler(out, opts)
+	}
+
+	handler = &TraceHandler{Handler: handler}
+	logger := slog.New(handler)
+
+	var attrs []any
+	if cfg.ServiceName != "" {
+		attrs = append(attrs, slog.String("service", cfg.ServiceName))
+	}
+	if cfg.Environment != "" {
+		attrs = append(attrs, slog.String("env", cfg.Environment))
+	}
+
+	if len(attrs) > 0 {
+		logger = logger.With(attrs...)
+	}
+
 	return logger
 }
