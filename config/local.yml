@@ -1,0 +1,16 @@
+env: local
+service: api-gateway
+
+grpc:
+  host: localhost
+  port: 8000
+
+logger:
+  format: json
+  level: info
+
+tracer:
+  service_name: "api-gateway"
+  endpoint: "localhost:4318"
+  insecure: true
+  sample_ratio: 1.0
