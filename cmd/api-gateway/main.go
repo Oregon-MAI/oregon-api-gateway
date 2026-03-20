@@ -45,12 +45,15 @@ func main() {
 
 	var logOutput io.Writer = os.Stdout
 	if cfg.Logger.FilePath != "" {
-		// Open file in append mode
-		f, err := os.OpenFile(cfg.Logger.FilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+		f, err := os.OpenFile(cfg.Logger.FilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
 		if err != nil {
 			panic(fmt.Errorf("failed to open log file: %w", err))
 		}
-		defer f.Close()
+		defer func() {
+			if err := f.Close(); err != nil {
+				_, _ = fmt.Fprintf(os.Stderr, "failed to close log file: %v\n", err)
+			}
+		}()
 		logOutput = io.MultiWriter(os.Stdout, f)
 	}
 
@@ -134,6 +137,7 @@ func (s *UserService) CreateUser(ctx context.Context, username string) error {
 	ctx, span := tr.Start(ctx, "UserService.CreateUser")
 	defer span.End()
 	slog.InfoContext(ctx, "Validating user", "username", username)
+	// #nosec G404 - Not security-sensitive, just for sleep jitter
 	time.Sleep(time.Duration(rand.Intn(50)) * time.Millisecond)
 
 	if username == "" {
@@ -156,6 +160,7 @@ func (r *UserRepository) Save(ctx context.Context, username string) error {
 	defer span.End()
 	span.SetAttributes(attribute.String("db.system", "postgres"))
 	slog.InfoContext(ctx, "Saving user to database", "username", username)
+	// #nosec G404 - Not security-sensitive, just for sleep jitter
 	time.Sleep(time.Duration(rand.Intn(100)) * time.Millisecond)
 
 	if username == "error_user" {
