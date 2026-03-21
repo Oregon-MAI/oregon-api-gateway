@@ -1,6 +1,12 @@
 env: local
 service: api-gateway
 
+http:
+  host: "0.0.0.0"
+  port: 8000
+  read_timeout: 15s
+  write_timeout: 15s
+
 grpc:
   host: localhost
   port: 8000
@@ -10,7 +16,10 @@ logger:
   level: info
 
 tracer:
-  service_name: "api-gateway"
-  endpoint: "localhost:4318"
+  end-point: "jaeger:4318"
   insecure: true
-  sample_ratio: 1.0
+  sample-ratio: 1.0
+
+sso:
+  base_url: "http://localhost:8080"
+  timeout: 5s

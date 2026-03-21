@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"time"
 
 	"github.com/ilyakaznacheev/cleanenv"
 )
@@ -9,9 +10,24 @@ import (
 type Config struct {
 	Env     string       `yaml:"env" env-default:"local"`
 	Service string       `yaml:"service"`
+	HTTP    HTTPConfig   `yaml:"http"`
 	GRPC    GRPCConfig   `yaml:"grpc"`
 	Logger  LoggerConfig `yaml:"logger"`
 	Trace   TracerConfig `yaml:"tracer"`
+	SSO     SSO          `yaml:"sso"`
+}
+
+type HTTPConfig struct {
+	Host         string        `yaml:"host" env:"HTTP_HOST"`
+	Port         int           `yaml:"port" env:"HTTP_PORT"`
+	ReadTimeout  time.Duration `yaml:"read_timeout" env-default:"15s"`
+	WriteTimeout time.Duration `yaml:"write_timeout" env-default:"15s"`
+	IdleTimeout  time.Duration `yaml:"idle_timeout" env-default:"60s"`
+}
+
+type SSO struct {
+	BaseURL string        `yaml:"base_url" env:"SSO_BASEURL"`
+	Timeout time.Duration `yaml:"timeout" env:"SSO_TIMEOUT"`
 }
 
 type GRPCConfig struct {
