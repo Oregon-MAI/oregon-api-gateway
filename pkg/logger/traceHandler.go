@@ -13,8 +13,9 @@ type TraceHandler struct {
 
 func (h *TraceHandler) Handle(ctx context.Context, r slog.Record) error {
 	spanCtx := trace.SpanFromContext(ctx).SpanContext()
-	if spanCtx.HasTraceID() {
+	if spanCtx.HasTraceID() && spanCtx.HasSpanID() {
 		r.AddAttrs(slog.String("trace_id", spanCtx.TraceID().String()))
+		r.AddAttrs(slog.String("span_id", spanCtx.SpanID().String()))
 	}
 	return h.Handler.Handle(ctx, r)
 }
