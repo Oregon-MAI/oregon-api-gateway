@@ -19,6 +19,8 @@ func Setup(cfg *config.HTTPConfig, log *slog.Logger, ssoClient *sso.Client) *htt
 	pub := r.Group("/api/v1/auth")
 	{
 		pub.POST("/login", authHandler.Login)
+		pub.POST("/refresh", authHandler.Refresh)
+		pub.POST("/register", authHandler.Register)
 	}
 
 	return &http.Server{

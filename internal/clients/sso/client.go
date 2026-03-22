@@ -9,7 +9,10 @@ import (
 	"log/slog"
 	"net/http"
 
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -49,8 +52,11 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, reqBody
 	req, err := http.NewRequestWithContext(ctx, method, c.baseURL+endpoint, bodyReader)
 	if err != nil {
 		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return fmt.Errorf("create request: %w", err)
 	}
+
+	otel.GetTextMapPropagator().Inject(ctx, propagation.HeaderCarrier(req.Header))
 
 	if reqBody != nil {
 		req.Header.Set("Content-Type", "application/json")
@@ -64,6 +70,7 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, reqBody
 			slog.Any("error", err),
 		)
 		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return fmt.Errorf("do request %s %s: %w", method, endpoint, err)
 	}
 	defer resp.Body.Close()
@@ -71,16 +78,21 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, reqBody
 	respData, err := io.ReadAll(resp.Body)
 	if err != nil {
 		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return fmt.Errorf("read response body: %w", err)
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("unexpected status %d from %s: %s", resp.StatusCode, endpoint, string(respData))
+		err := fmt.Errorf("unexpected status %d from %s: %s", resp.StatusCode, endpoint, string(respData))
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return err
 	}
 
 	if respBody != nil {
 		if err := json.Unmarshal(respData, respBody); err != nil {
 			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
 			return fmt.Errorf("unmarshal response: %w", err)
 		}
 	}

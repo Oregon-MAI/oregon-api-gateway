@@ -14,6 +14,7 @@ import (
 	"github.com/OnYyon/oregon-api-gateway/internal/config"
 	routes "github.com/OnYyon/oregon-api-gateway/internal/routes/sso"
 	"github.com/OnYyon/oregon-api-gateway/pkg/logger"
+	"github.com/OnYyon/oregon-api-gateway/pkg/observability/tracer"
 	"go.opentelemetry.io/otel"
 )
 
@@ -36,6 +37,22 @@ func main() {
 	}
 	log := logger.New(logCfg)
 	slog.SetDefault(log)
+
+	tp, err := tracer.New(context.Background(), &tracer.Config{
+		ServiceName: cfg.Service,
+		EndPoint:    cfg.Trace.EndPoint,
+		Insecure:    cfg.Trace.Insecure,
+		SampleRatio: cfg.Trace.SampleRatio,
+	})
+	if err != nil {
+		log.Error("faield to init tracer", "error", err)
+	}
+
+	defer func() {
+		if err := tp.Shutdown(context.Background()); err != nil {
+			log.Error("failed to shutdown tracer", "error", err)
+		}
+	}()
 
 	ssoClient := sso.NewClient(
 		sso.NewConfig(

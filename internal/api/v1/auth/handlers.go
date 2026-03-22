@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -28,18 +29,21 @@ func NewHandler(ssoClient *sso.Client, logger *slog.Logger) *Handler {
 }
 
 func (h *Handler) Login(c *gin.Context) {
-	ctx := h.startSpan(c, "Auth.Login")
+	ctx, span := h.startSpan(c, "Auth.Login")
+	defer span.End()
 
 	var req LoginRequest
-	if !h.bind(c, &req) {
+	if !h.bind(c, span, &req) {
 		return
 	}
 
 	resp, err := h.ssoClient.Login(ctx, &sso.LoginRequest{
-		Username: req.Username,
+		Login:    req.Login,
 		Password: req.Password,
 	})
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		h.handleAuthErr(c, err, "login")
 		return
 	}
@@ -50,16 +54,71 @@ func (h *Handler) Login(c *gin.Context) {
 	})
 }
 
-func (h *Handler) startSpan(c *gin.Context, name string) context.Context {
-	ctx, _ := h.tracer.Start(c.Request.Context(), name,
+func (h *Handler) Refresh(c *gin.Context) {
+	ctx, span := h.startSpan(c, "Auth.Refresh")
+	defer span.End()
+
+	var req RefreshRequest
+	if !h.bind(c, span, &req) {
+		return
+	}
+
+	resp, err := h.ssoClient.Refresh(ctx, &sso.RefreshRequest{
+		RefreshToken: req.RefreshToken,
+	})
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		h.handleAuthErr(c, err, "refresh")
+		return
+	}
+
+	h.json(c, http.StatusOK, LoginResponse{
+		AccessToken:  resp.AccessToken,
+		RefreshToken: resp.RefreshToken,
+	})
+}
+
+func (h *Handler) Register(c *gin.Context) {
+	ctx, span := h.startSpan(c, "Auth.Register")
+	defer span.End()
+
+	var req RegisterRequest
+	if !h.bind(c, span, &req) {
+		return
+	}
+
+	resp, err := h.ssoClient.Register(ctx, &sso.RegisterRequest{
+		Username: req.Username,
+		Login:    req.Login,
+		Password: req.Password,
+	})
+
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		h.handleAuthErr(c, err, "register")
+		return
+	}
+
+	h.json(c, http.StatusOK, LoginResponse{
+		AccessToken:  resp.AccessToken,
+		RefreshToken: resp.RefreshToken,
+	})
+}
+
+func (h *Handler) startSpan(c *gin.Context, name string) (context.Context, trace.Span) {
+	ctx, span := h.tracer.Start(c.Request.Context(), name,
 		trace.WithAttributes(attribute.String("handler", strings.ToLower(strings.TrimPrefix(name, "Auth.")))),
 	)
 	c.Request = c.Request.WithContext(ctx)
-	return ctx
+	return ctx, span
 }
 
-func (h *Handler) bind(c *gin.Context, dst any) bool {
+func (h *Handler) bind(c *gin.Context, span trace.Span, dst any) bool {
 	if err := c.ShouldBindJSON(dst); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "invalid request body")
 		h.json(c, http.StatusBadRequest, errResp("invalid_request", "Invalid request body"))
 		return false
 	}

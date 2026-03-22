@@ -16,7 +16,7 @@ logger:
   level: info
 
 tracer:
-  end-point: "jaeger:4318"
+  end-point: "localhost:4318"
   insecure: true
   sample-ratio: 1.0
 
