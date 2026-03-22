@@ -52,3 +52,17 @@ func (c *Client) Register(ctx context.Context, req *RegisterRequest) (*LoginResp
 	}
 	return resp, nil
 }
+
+func (c *Client) Validate(ctx context.Context, req *ValidateRequest) (*ValidateResponse, error) {
+	resp := new(ValidateResponse)
+	err := c.doRequest(
+		ctx, http.MethodPost,
+		"/api/v1/auth/validate",
+		req, resp,
+		"SSO.Validate",
+	)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}

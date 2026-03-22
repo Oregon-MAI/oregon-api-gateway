@@ -8,7 +8,7 @@ import (
 	"github.com/OnYyon/oregon-api-gateway/internal/api/v1/auth"
 	"github.com/OnYyon/oregon-api-gateway/internal/clients/sso"
 	"github.com/OnYyon/oregon-api-gateway/internal/config"
-	"github.com/OnYyon/oregon-api-gateway/internal/middlwares"
+	"github.com/OnYyon/oregon-api-gateway/internal/middlewares"
 	"github.com/gin-gonic/gin"
 )
 
@@ -18,8 +18,8 @@ func Setup(cfg *config.HTTPConfig, log *slog.Logger, ssoClient *sso.Client) *htt
 	authHandler := auth.NewHandler(ssoClient, log)
 
 	r.Use(gin.Recovery())
-	r.Use(middlwares.Tracing("api-gateway"))
-	r.Use(middlwares.Logging(log))
+	r.Use(middlewares.Tracing("api-gateway"))
+	r.Use(middlewares.Logging(log))
 
 	pub_auth := r.Group("/api/v1/auth")
 	{
