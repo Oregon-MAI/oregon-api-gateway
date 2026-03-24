@@ -12,7 +12,7 @@ import (
 
 	"github.com/OnYyon/oregon-api-gateway/internal/clients/sso"
 	"github.com/OnYyon/oregon-api-gateway/internal/config"
-	routes "github.com/OnYyon/oregon-api-gateway/internal/routes/sso"
+	"github.com/OnYyon/oregon-api-gateway/internal/routes"
 	"github.com/OnYyon/oregon-api-gateway/pkg/logger"
 	"github.com/OnYyon/oregon-api-gateway/pkg/observability/tracer"
 	"go.opentelemetry.io/otel"
@@ -63,7 +63,7 @@ func main() {
 		otel.GetTracerProvider(),
 	)
 
-	srv := routes.Setup(&cfg.HTTP, log, ssoClient)
+	srv := routes.Setup(cfg, log, ssoClient)
 
 	go func() {
 		sig := make(chan os.Signal, 1)

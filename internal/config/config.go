@@ -8,13 +8,13 @@ import (
 )
 
 type Config struct {
-	Env     string       `yaml:"env" env-default:"local"`
-	Service string       `yaml:"service"`
-	HTTP    HTTPConfig   `yaml:"http"`
-	GRPC    GRPCConfig   `yaml:"grpc"`
-	Logger  LoggerConfig `yaml:"logger"`
-	Trace   TracerConfig `yaml:"tracer"`
-	SSO     SSO          `yaml:"sso"`
+	Env      string         `yaml:"env" env-default:"local"`
+	Service  string         `yaml:"service"`
+	HTTP     HTTPConfig     `yaml:"http"`
+	Logger   LoggerConfig   `yaml:"logger"`
+	Trace    TracerConfig   `yaml:"tracer"`
+	SSO      SSO            `yaml:"sso"`
+	Resource ResourceConfig `yaml:"resource"`
 }
 
 type HTTPConfig struct {
@@ -30,9 +30,10 @@ type SSO struct {
 	Timeout time.Duration `yaml:"timeout" env:"SSO_TIMEOUT"`
 }
 
-type GRPCConfig struct {
-	Host string `yaml:"host" env:"HOST"`
-	Port int    `yaml:"port" env:"PORT"`
+type ResourceConfig struct {
+	GRPCTarget  string        `yaml:"grpc_target" env:"RESOURCE_GRPC_TARGET"`
+	Timeout     time.Duration `yaml:"timeout" env:"RESOURCE_TIMEOUT" env-default:"5s"`
+	DialTimeout time.Duration `yaml:"dial_timeout" env:"RESOURCE_DIAL_TIMEOUT" env-default:"5s"`
 }
 
 type LoggerConfig struct {

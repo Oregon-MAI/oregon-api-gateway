@@ -1,0 +1,62 @@
+package routes
+
+import (
+	"fmt"
+	"log/slog"
+	"net/http"
+
+	"github.com/OnYyon/oregon-api-gateway/internal/api/v1/auth"
+	"github.com/OnYyon/oregon-api-gateway/internal/api/v1/resource"
+	"github.com/OnYyon/oregon-api-gateway/internal/clients/grpc"
+	resourceclient "github.com/OnYyon/oregon-api-gateway/internal/clients/resource"
+	"github.com/OnYyon/oregon-api-gateway/internal/clients/sso"
+	"github.com/OnYyon/oregon-api-gateway/internal/config"
+	"github.com/OnYyon/oregon-api-gateway/internal/middlewares"
+	resourceservice "github.com/OnYyon/oregon-api-gateway/internal/services/resource"
+	"github.com/gin-gonic/gin"
+)
+
+func Setup(cfg *config.Config, log *slog.Logger, ssoClient *sso.Client) *http.Server {
+	gin.SetMode(gin.ReleaseMode)
+	r := gin.New()
+	authHandler := auth.NewHandler(ssoClient, log)
+	resourceClient, err := resourceclient.NewClient(
+		grpc.NewConfig(
+			grpc.WithTarget(cfg.Resource.GRPCTarget),
+			grpc.WithTimeout(cfg.Resource.Timeout),
+			grpc.WithDialTimeout(cfg.Resource.DialTimeout),
+		),
+		log,
+	)
+	if err != nil {
+		log.Error("failed to create resource client", slog.Any("error", err))
+	}
+	resourceSvc := resourceservice.NewService(resourceClient)
+	resourceHandler := resource.NewHandler(resourceSvc, log)
+
+	r.Use(gin.Recovery())
+	r.Use(middlewares.Tracing("api-gateway"))
+	r.Use(middlewares.Logging(log))
+
+	pub_auth := r.Group("/api/v1/auth")
+	{
+		pub_auth.POST("/login", authHandler.Login)
+		pub_auth.POST("/refresh", authHandler.Refresh)
+		pub_auth.POST("/register", authHandler.Register)
+	}
+
+	pub_resource := r.Group("/api/v1/resources")
+	pub_resource.Use(middlewares.AuthMiddleware(ssoClient, log))
+	{
+		pub_resource.GET("", resourceHandler.GetAvailableResources)
+		pub_resource.GET("/:id", resourceHandler.GetResource)
+	}
+
+	return &http.Server{
+		Addr:         fmt.Sprintf("%s:%d", cfg.HTTP.Host, cfg.HTTP.Port),
+		Handler:      r,
+		ReadTimeout:  cfg.HTTP.ReadTimeout,
+		WriteTimeout: cfg.HTTP.WriteTimeout,
+		IdleTimeout:  cfg.HTTP.IdleTimeout,
+	}
+}

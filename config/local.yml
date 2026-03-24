@@ -7,10 +7,6 @@ http:
   read_timeout: 15s
   write_timeout: 15s
 
-grpc:
-  host: localhost
-  port: 8000
-
 logger:
   format: json
   level: info
@@ -23,3 +19,8 @@ tracer:
 sso:
   base_url: "http://localhost:8080"
   timeout: 5s
+
+resource:
+  grpc_target:
+  timeout: 10s
+  dial_timeout: 5s
