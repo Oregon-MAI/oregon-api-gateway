@@ -3,10 +3,9 @@ package sso
 import (
 	"context"
 	"net/http"
-
-	"go.opentelemetry.io/otel/attribute"
 )
 
+/*
 func (c *Client) Login(ctx context.Context, req *LoginRequest) (*LoginResponse, error) {
 	resp := new(LoginResponse)
 
@@ -52,6 +51,7 @@ func (c *Client) Register(ctx context.Context, req *RegisterRequest) (*LoginResp
 	}
 	return resp, nil
 }
+*/
 
 func (c *Client) Validate(ctx context.Context, req *ValidateRequest) (*ValidateResponse, error) {
 	resp := new(ValidateResponse)

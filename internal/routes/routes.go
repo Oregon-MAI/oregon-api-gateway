@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/OnYyon/oregon-api-gateway/internal/api/v1/auth"
 	"github.com/OnYyon/oregon-api-gateway/internal/api/v1/resource"
 	"github.com/OnYyon/oregon-api-gateway/internal/clients/grpc"
 	resourceclient "github.com/OnYyon/oregon-api-gateway/internal/clients/resource"
@@ -19,7 +18,7 @@ import (
 func Setup(cfg *config.Config, log *slog.Logger, ssoClient *sso.Client) *http.Server {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
-	authHandler := auth.NewHandler(ssoClient, log)
+	ssoProxy := sso.SSOProxy(cfg.SSO.BaseURL, log)
 	resourceClient, err := resourceclient.NewClient(
 		grpc.NewConfig(
 			grpc.WithTarget(cfg.Resource.GRPCTarget),
@@ -40,9 +39,9 @@ func Setup(cfg *config.Config, log *slog.Logger, ssoClient *sso.Client) *http.Se
 
 	pub_auth := r.Group("/api/v1/auth")
 	{
-		pub_auth.POST("/login", authHandler.Login)
-		pub_auth.POST("/refresh", authHandler.Refresh)
-		pub_auth.POST("/register", authHandler.Register)
+		pub_auth.POST("/login", ssoProxy)
+		pub_auth.POST("/refresh", ssoProxy)
+		pub_auth.POST("/register", ssoProxy)
 	}
 
 	pub_resource := r.Group("/api/v1/resources")
