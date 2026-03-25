@@ -73,7 +73,11 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, reqBody
 		span.SetStatus(codes.Error, err.Error())
 		return fmt.Errorf("do request %s %s: %w", method, endpoint, err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			c.logger.Error("failed to close response body", slog.Any("error", err))
+		}
+	}()
 
 	respData, err := io.ReadAll(resp.Body)
 	if err != nil {

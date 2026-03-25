@@ -24,7 +24,9 @@ func NewClient(publicCfg, bookingCfg *grpc.Config, log *slog.Logger) (*Client, e
 
 	bookingGrpcClient, err := grpc.NewGRPCClient(*bookingCfg, log)
 	if err != nil {
-		publicGrpcClient.Close()
+		if closeErr := publicGrpcClient.Close(); closeErr != nil {
+			log.Error("failed to close public grpc client", slog.Any("error", closeErr))
+		}
 		return nil, err
 	}
 

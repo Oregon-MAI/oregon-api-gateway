@@ -25,7 +25,11 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	defer f.Close()
+	defer func() {
+		if err := f.Close(); err != nil {
+			slog.Error("failed to close log file", slog.Any("error", err))
+		}
+	}()
 
 	logCfg := &logger.Config{
 		Level:       parseLevel(cfg.Logger.Level),

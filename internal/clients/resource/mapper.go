@@ -300,7 +300,3 @@ func fromTimestamp(ts *timestamppb.Timestamp) time.Time {
 	}
 	return ts.AsTime()
 }
-
-func toTimestamp(t time.Time) *timestamppb.Timestamp {
-	return timestamppb.New(t)
-}
