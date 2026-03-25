@@ -21,7 +21,12 @@ func Setup(cfg *config.Config, log *slog.Logger, ssoClient *sso.Client) *http.Se
 	ssoProxy := sso.SSOProxy(cfg.SSO.BaseURL, log)
 	resourceClient, err := resourceclient.NewClient(
 		grpc.NewConfig(
-			grpc.WithTarget(cfg.Resource.GRPCTarget),
+			grpc.WithTarget(cfg.Resource.PublicTarget),
+			grpc.WithTimeout(cfg.Resource.Timeout),
+			grpc.WithDialTimeout(cfg.Resource.DialTimeout),
+		),
+		grpc.NewConfig(
+			grpc.WithTarget(cfg.Resource.BookingTarget),
 			grpc.WithTimeout(cfg.Resource.Timeout),
 			grpc.WithDialTimeout(cfg.Resource.DialTimeout),
 		),
@@ -45,10 +50,17 @@ func Setup(cfg *config.Config, log *slog.Logger, ssoClient *sso.Client) *http.Se
 	}
 
 	pub_resource := r.Group("/api/v1/resources")
-	pub_resource.Use(middlewares.AuthMiddleware(ssoClient, log))
 	{
 		pub_resource.GET("", resourceHandler.GetAvailableResources)
 		pub_resource.GET("/:id", resourceHandler.GetResource)
+		pub_resource.POST("", resourceHandler.CreateResource)
+		pub_resource.GET("/list", resourceHandler.GetResourcesList)
+		pub_resource.PUT("/:id", resourceHandler.UpdateResource)
+		pub_resource.DELETE("/:id", resourceHandler.DeleteResource)
+		pub_resource.PATCH("/:id/status", resourceHandler.ChangeResourceStatus)
+
+		pub_resource.GET("/:id/status", resourceHandler.CheckResourceStatus)
+		pub_resource.PATCH("/:id/occupancy", resourceHandler.UpdateResourceOccupancy)
 	}
 
 	return &http.Server{

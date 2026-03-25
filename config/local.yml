@@ -21,6 +21,7 @@ sso:
   timeout: 5s
 
 resource:
-  grpc_target:
+  public_target: "localhost:60009"
+  booking_target: "localhost:60008"
   timeout: 10s
   dial_timeout: 5s
