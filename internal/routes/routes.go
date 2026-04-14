@@ -50,6 +50,15 @@ func Setup(cfg *config.Config, log *slog.Logger, ssoClient *sso.Client) *http.Se
 		pub_auth.POST("/validate", ssoProxy)
 	}
 
+	private_auth := r.Group("/api/v1/user")
+	private_auth.Use(middlewares.AuthMiddleware(ssoClient, log))
+	{
+		private_auth.GET("/users", ssoProxy)
+		private_auth.GET("/user", ssoProxy)
+		private_auth.POST("/change_role", ssoProxy)
+		private_auth.DELETE("/delete_user", ssoProxy)
+	}
+
 	pub_resource := r.Group("/api/v1/resources")
 	pub_resource.Use(middlewares.AuthMiddleware(ssoClient, log))
 	{
