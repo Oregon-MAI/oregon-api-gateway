@@ -17,7 +17,7 @@ tracer:
   sample-ratio: 1.0
 
 sso:
-  base_url: "http://localhost:8080"
+  base_url: "http://localhost:8001"
   timeout: 5s
 
 resource:

@@ -47,9 +47,11 @@ func Setup(cfg *config.Config, log *slog.Logger, ssoClient *sso.Client) *http.Se
 		pub_auth.POST("/login", ssoProxy)
 		pub_auth.POST("/refresh", ssoProxy)
 		pub_auth.POST("/register", ssoProxy)
+		pub_auth.POST("/validate", ssoProxy)
 	}
 
 	pub_resource := r.Group("/api/v1/resources")
+	pub_resource.Use(middlewares.AuthMiddleware(ssoClient, log))
 	{
 		pub_resource.GET("", resourceHandler.GetAvailableResources)
 		pub_resource.GET("/:id", resourceHandler.GetResource)
