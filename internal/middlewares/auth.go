@@ -1,6 +1,7 @@
 package middlewares
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -15,127 +16,152 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
+type authPayload struct {
+	ginCtx   *gin.Context
+	ctx      context.Context
+	tokenStr string
+	userID   string
+	roles    []string
+}
 
+type authStep func(*authPayload) error
 
 func AuthMiddleware(client *sso.Client, jwtSecret string, log *slog.Logger) gin.HandlerFunc {
 	tracer := otel.GetTracerProvider().Tracer("gateway/auth_middleware")
+	pipeline := []authStep{
+		extractTokenStep(),
+		validateSSOStep(client),
+		parseClaimsStep(jwtSecret, log),
+		enrichContextStep(),
+	}
 
 	return func(c *gin.Context) {
-		ctx, span := tracer.Start(c.Request.Context(), "Auth.ValidateToken",
-			trace.WithSpanKind(trace.SpanKindServer),
-		)
+		ctx, span := tracer.Start(c.Request.Context(), "Auth.Pipeline", trace.WithSpanKind(trace.SpanKindServer))
 		defer span.End()
-		reqLog := log.With(slog.String("component", "auth_middleware"))
+		reqLog := log.With(slog.String("component", "auth_pipeline"))
 
-		tokenStr, err := extractBearerToken(c)
-		if err != nil {
-			span.RecordError(err)
-			span.SetStatus(codes.Error, "missing_or_invalid_auth_header")
-			reqLog.Warn("authentication failed", slog.String("reason", err.Error()))
-			c.AbortWithStatusJSON(http.StatusUnauthorized, map[string]string{
-				"error": "unauthorized",
-			})
-			return
+		payload := &authPayload{
+			ginCtx: c,
+			ctx:    ctx,
 		}
 
-		resp, err := client.Validate(ctx, &sso.ValidateRequest{
-			AccessToken: tokenStr,
+		for _, step := range pipeline {
+			if err := step(payload); err != nil {
+				abortPipeline(c, span, reqLog, err)
+				return
+			}
+		}
+
+		c.Request = c.Request.WithContext(payload.ctx)
+		c.Next()
+	}
+}
+
+func abortPipeline(c *gin.Context, span trace.Span, reqLog *slog.Logger, err error) {
+	span.RecordError(err)
+	span.SetStatus(codes.Error, "authentication_failed")
+	reqLog.Warn("authentication pipeline failed", slog.Any("error", err))
+
+	c.AbortWithStatusJSON(http.StatusUnauthorized, map[string]string{
+		"error": "unauthorized",
+	})
+}
+
+func extractTokenStep() authStep {
+	return func(p *authPayload) error {
+		h := p.ginCtx.GetHeader("Authorization")
+		if h == "" {
+			return fmt.Errorf("missing_authorization_header")
+		}
+
+		if !strings.HasPrefix(h, "Bearer ") {
+			return fmt.Errorf("invalid_authorization_format")
+		}
+
+		token := strings.TrimSpace(strings.TrimPrefix(h, "Bearer "))
+		if token == "" {
+			return fmt.Errorf("empty_token")
+		}
+
+		p.tokenStr = token
+		return nil
+	}
+}
+
+func validateSSOStep(client *sso.Client) authStep {
+	return func(p *authPayload) error {
+		resp, err := client.Validate(p.ctx, &sso.ValidateRequest{
+			AccessToken: p.tokenStr,
 		})
 		if err != nil {
-			span.RecordError(err)
-			span.SetStatus(codes.Error, "token_validation_failed")
-			reqLog.Warn("token validation failed", slog.String("error", err.Error()))
-			c.AbortWithStatusJSON(http.StatusUnauthorized, map[string]string{
-				"error": "invalid_token",
-			})
-			return
+			return fmt.Errorf("sso validation request failed: %w", err)
 		}
 
 		if !resp.Validate {
-			err := &authError{reason: "token_invalid"}
-			span.RecordError(err)
-			span.SetStatus(codes.Error, "token_invalid")
-			reqLog.Warn("token is not valid")
-			c.AbortWithStatusJSON(http.StatusUnauthorized, map[string]string{
-				"error": "invalid_token",
-			})
-			return
+			return fmt.Errorf("token_invalid_by_sso")
 		}
+		return nil
+	}
+}
 
-		token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (any, error) {
+func parseClaimsStep(secret string, reqLog *slog.Logger) authStep {
+	return func(p *authPayload) error {
+		token, err := jwt.Parse(p.tokenStr, func(token *jwt.Token) (any, error) {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 			}
-			return []byte(jwtSecret), nil
+			return []byte(secret), nil
 		})
 
-		var userID string
-		var roles []string
-
-		if err == nil && token.Valid {
-			if claims, ok := token.Claims.(jwt.MapClaims); ok {
-				if uuid, ok := claims["id"].(string); ok {
-					userID = uuid
-				}
-
-				if rolesVal, ok := claims["roles"].([]any); ok {
-					for _, r := range rolesVal {
-						if strRole, ok := r.(string); ok {
-							roles = append(roles, strRole)
-						}
-					}
-				}
-			}
-		} else {
+		if err != nil || !token.Valid {
 			reqLog.Warn("failed to parse jwt or invalid signature", slog.Any("error", err))
+			return nil
 		}
 
-		rolesStr := strings.Join(roles, ",")
+		claims, ok := token.Claims.(jwt.MapClaims)
+		if !ok {
+			return nil
+		}
 
-		if userID != "" {
-			c.Set("user_id", userID)
-			c.Set("roles", roles)
+		if id, ok := claims["id"].(string); ok {
+			p.userID = id
+		}
+
+		if rolesVal, ok := claims["roles"].([]any); ok {
+			for _, r := range rolesVal {
+				if strRole, ok := r.(string); ok {
+					p.roles = append(p.roles, strRole)
+				}
+			}
+		}
+
+		return nil
+	}
+}
+
+func enrichContextStep() authStep {
+	return func(p *authPayload) error {
+		rolesStr := strings.Join(p.roles, ",")
+
+		if p.userID != "" {
+			p.ginCtx.Set("user_id", p.userID)
+		}
+		if len(p.roles) > 0 {
+			p.ginCtx.Set("roles", p.roles)
 		}
 
 		var mdPairs []string
-		if userID != "" {
-			mdPairs = append(mdPairs, "x-user-id", userID)
+		if p.userID != "" {
+			mdPairs = append(mdPairs, "x-user-id", p.userID)
 		}
 		if rolesStr != "" {
 			mdPairs = append(mdPairs, "x-user-role", rolesStr)
 		}
 
 		if len(mdPairs) > 0 {
-			ctx = metadata.AppendToOutgoingContext(ctx, mdPairs...)
+			p.ctx = metadata.AppendToOutgoingContext(p.ctx, mdPairs...)
 		}
 
-		c.Request = c.Request.WithContext(ctx)
-		c.Next()
+		return nil
 	}
-}
-
-func extractBearerToken(c *gin.Context) (string, error) {
-	h := c.GetHeader("Authorization")
-	if h == "" {
-		return "", &authError{reason: "missing_authorization_header"}
-	}
-
-	if !strings.HasPrefix(h, "Bearer ") {
-		return "", &authError{reason: "invalid_authorization_format"}
-	}
-
-	token := strings.TrimSpace(strings.TrimPrefix(h, "Bearer "))
-	if token == "" {
-		return "", &authError{reason: "empty_token"}
-	}
-
-	return token, nil
-}
-
-type authError struct {
-	reason string
-}
-
-func (e *authError) Error() string {
-	return "auth: " + e.reason
 }
