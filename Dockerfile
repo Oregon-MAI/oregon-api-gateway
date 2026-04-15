@@ -13,7 +13,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /app/bin/api-gateway .
-COPY --from=builder /app/logs ./logs
 COPY --from=builder /app/config ./config
 
 EXPOSE 8000
