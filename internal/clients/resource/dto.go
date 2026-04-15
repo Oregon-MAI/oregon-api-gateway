@@ -29,9 +29,7 @@ type CreateResourceRequestDTO struct {
 }
 
 type UpdateResourceRequestDTO struct {
-	ResourceID string      `json:"resource_id"`
-	Resource   ResourceDTO `json:"resource"`
-	Paths      []string    `json:"paths"`
+	ResourceDTO
 }
 
 type ChangeResourceStatusRequestDTO struct {

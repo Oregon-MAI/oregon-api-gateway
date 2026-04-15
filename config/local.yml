@@ -17,11 +17,17 @@ tracer:
   sample-ratio: 1.0
 
 sso:
-  base_url: "http://localhost:8080"
+  base_url: "http://localhost:8001"
   timeout: 5s
+  jwt_secret: M&6u_hdJ-)Qvx:yGkN+2|1a917e3c181d9399a72327e00f78ff8a9992aeea|3ae318fbdc247ce171ea90c244cc46e4
 
 resource:
   public_target: "localhost:60009"
   booking_target: "localhost:60008"
   timeout: 10s
+  dial_timeout: 5s
+
+booking:
+  target: "localhost:60017"
+  timeout: 5s
   dial_timeout: 5s

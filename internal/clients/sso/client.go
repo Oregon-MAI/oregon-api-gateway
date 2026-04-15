@@ -35,7 +35,7 @@ func NewClient(cfg *Config, log *slog.Logger, tp trace.TracerProvider) *Client {
 	}
 }
 
-func (c *Client) doRequest(ctx context.Context, method, endpoint string, reqBody, respBody any, spanName string, attrs ...attribute.KeyValue) error {
+func (c *Client) doRequest(ctx context.Context, method, endpoint string, reqBody, respBody any, headers map[string]string, spanName string, attrs ...attribute.KeyValue) error {
 	ctx, span := c.tracer.Start(ctx, spanName, trace.WithAttributes(attrs...))
 	defer span.End()
 
@@ -60,6 +60,9 @@ func (c *Client) doRequest(ctx context.Context, method, endpoint string, reqBody
 
 	if reqBody != nil {
 		req.Header.Set("Content-Type", "application/json")
+	}
+	for k, v := range headers {
+		req.Header.Set(k, v)
 	}
 
 	resp, err := c.httpClient.Do(req)

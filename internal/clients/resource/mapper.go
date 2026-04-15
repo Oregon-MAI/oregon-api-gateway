@@ -207,26 +207,25 @@ func ToUpdateResourceRequest(req *UpdateResourceRequestDTO) *resourcev1.UpdateRe
 	pbReq := &resourcev1.UpdateResourceRequest{
 		ResourceId: req.ResourceID,
 		Resource: &resourcev1.Resource{
-			ResourceId: req.Resource.ResourceID,
-			Name:       req.Resource.Name,
-			Location:   req.Resource.Location,
-		},
-		FieldMask: &fieldmaskpb.FieldMask{
-			Paths: req.Paths,
+			ResourceId: req.ResourceID,
+			Name:       req.Name,
+			Location:   req.Location,
 		},
 	}
 
-	if rt, ok := resourcev1.ResourceType_value[req.Resource.Type]; ok {
+	if rt, ok := resourcev1.ResourceType_value[req.Type]; ok {
 		pbReq.Resource.Type = resourcev1.ResourceType(rt)
 	}
-	if rs, ok := resourcev1.ResourceStatus_value[req.Resource.Status]; ok {
+	if rs, ok := resourcev1.ResourceStatus_value[req.Status]; ok {
 		pbReq.Resource.Status = resourcev1.ResourceStatus(rs)
 	}
 
-	switch req.Resource.Type {
+	var detailsPath string
+
+	switch req.Type {
 	case "RESOURCE_TYPE_MEETING_ROOM":
 		var d MeetingRoomDTO
-		if err := json.Unmarshal(req.Resource.Details, &d); err == nil {
+		if err := json.Unmarshal(req.Details, &d); err == nil {
 			pbReq.Resource.Details = &resourcev1.Resource_MeetingRoom{
 				MeetingRoom: &resourcev1.MeetingRoomDetails{
 					Capacity:      d.Capacity,
@@ -234,19 +233,21 @@ func ToUpdateResourceRequest(req *UpdateResourceRequestDTO) *resourcev1.UpdateRe
 					HasWhiteboard: d.HasWhiteboard,
 				},
 			}
+			detailsPath = "meeting_room"
 		}
 	case "RESOURCE_TYPE_WORKSPACE":
 		var d WorkspaceDTO
-		if err := json.Unmarshal(req.Resource.Details, &d); err == nil {
+		if err := json.Unmarshal(req.Details, &d); err == nil {
 			pbReq.Resource.Details = &resourcev1.Resource_Workspace{
 				Workspace: &resourcev1.WorkspaceDetails{
 					HasMonitor: d.HasMonitor,
 				},
 			}
+			detailsPath = "workspace"
 		}
 	case "RESOURCE_TYPE_DEVICE":
 		var d DeviceDTO
-		if err := json.Unmarshal(req.Resource.Details, &d); err == nil {
+		if err := json.Unmarshal(req.Details, &d); err == nil {
 			pbReq.Resource.Details = &resourcev1.Resource_Device{
 				Device: &resourcev1.DeviceDetails{
 					DeviceType:   d.DeviceType,
@@ -256,6 +257,18 @@ func ToUpdateResourceRequest(req *UpdateResourceRequestDTO) *resourcev1.UpdateRe
 				},
 			}
 		}
+		detailsPath = "device"
+	}
+
+	paths := []string{
+		"name",
+		"location",
+		"type",
+		"status",
+		detailsPath,
+	}
+	pbReq.FieldMask = &fieldmaskpb.FieldMask{
+		Paths: paths,
 	}
 
 	return pbReq

@@ -17,12 +17,12 @@ type Client struct {
 }
 
 func NewClient(publicCfg, bookingCfg *grpc.Config, log *slog.Logger) (*Client, error) {
-	publicGrpcClient, err := grpc.NewGRPCClient(*publicCfg, log)
+	publicGrpcClient, err := grpc.NewGRPCClient(publicCfg, log)
 	if err != nil {
 		return nil, err
 	}
 
-	bookingGrpcClient, err := grpc.NewGRPCClient(*bookingCfg, log)
+	bookingGrpcClient, err := grpc.NewGRPCClient(bookingCfg, log)
 	if err != nil {
 		if closeErr := publicGrpcClient.Close(); closeErr != nil {
 			log.Error("failed to close public grpc client", slog.Any("error", closeErr))

@@ -34,7 +34,7 @@ func main() {
 	logCfg := &logger.Config{
 		Level:       parseLevel(cfg.Logger.Level),
 		Format:      cfg.Logger.Format,
-		AddSource:   true,
+		AddSource:   false,
 		Out:         io.MultiWriter(os.Stdout, f),
 		ServiceName: cfg.Service,
 		Environment: cfg.Env,

@@ -19,7 +19,7 @@ type Client struct {
 	timeout time.Duration
 }
 
-func NewGRPCClient(cfg Config, log *slog.Logger) (*Client, error) {
+func NewGRPCClient(cfg *Config, log *slog.Logger) (*Client, error) {
 	if cfg.Target == "" {
 		return nil, ErrInvalidTarget
 	}

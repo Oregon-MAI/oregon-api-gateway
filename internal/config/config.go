@@ -15,6 +15,7 @@ type Config struct {
 	Trace    TracerConfig   `yaml:"tracer"`
 	SSO      SSO            `yaml:"sso"`
 	Resource ResourceConfig `yaml:"resource"`
+	Booking  BookingConfig  `yaml:"booking"`
 }
 
 type HTTPConfig struct {
@@ -26,8 +27,9 @@ type HTTPConfig struct {
 }
 
 type SSO struct {
-	BaseURL string        `yaml:"base_url" env:"SSO_BASEURL"`
-	Timeout time.Duration `yaml:"timeout" env:"SSO_TIMEOUT"`
+	BaseURL   string        `yaml:"base_url" env:"SSO_BASEURL"`
+	Timeout   time.Duration `yaml:"timeout" env:"SSO_TIMEOUT"`
+	JWTSecret string        `yaml:"jwt_secret" env:"SSO_JWT_SECRET"`
 }
 
 type ResourceConfig struct {
@@ -35,6 +37,12 @@ type ResourceConfig struct {
 	PublicTarget  string        `yaml:"public_target" env:"RESOURCE_PUBLIC_TARGET"`
 	Timeout       time.Duration `yaml:"timeout" env:"RESOURCE_TIMEOUT" env-default:"5s"`
 	DialTimeout   time.Duration `yaml:"dial_timeout" env:"RESOURCE_DIAL_TIMEOUT" env-default:"5s"`
+}
+
+type BookingConfig struct {
+	Target      string        `yaml:"target" env:"BOOKING_TARGET"`
+	Timeout     time.Duration `yaml:"timeout" env:"BOOKING_TIMEOUT" env-default:"5s"`
+	DialTimeout time.Duration `yaml:"dial_timeout" env:"BOOKING_DIAL_TIMEOUT" env-default:"5s"`
 }
 
 type LoggerConfig struct {
