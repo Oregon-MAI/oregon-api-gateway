@@ -27,8 +27,9 @@ type HTTPConfig struct {
 }
 
 type SSO struct {
-	BaseURL string        `yaml:"base_url" env:"SSO_BASEURL"`
-	Timeout time.Duration `yaml:"timeout" env:"SSO_TIMEOUT"`
+	BaseURL   string        `yaml:"base_url" env:"SSO_BASEURL"`
+	Timeout   time.Duration `yaml:"timeout" env:"SSO_TIMEOUT"`
+	JWTSecret string        `yaml:"jwt_secret" env:"SSO_JWT_SECRET"`
 }
 
 type ResourceConfig struct {

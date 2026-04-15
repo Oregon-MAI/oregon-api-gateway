@@ -68,23 +68,23 @@ func Setup(cfg *config.Config, log *slog.Logger, ssoClient *sso.Client) *http.Se
 	}
 
 	private_auth := r.Group("/api/v1/user")
-	private_auth.Use(middlewares.AuthMiddleware(ssoClient, log))
+	private_auth.Use(middlewares.AuthMiddleware(ssoClient, cfg.SSO.JWTSecret, log))
 	{
 		private_auth.GET("/users", ssoProxy)
 		private_auth.GET("/user", ssoProxy)
-		private_auth.POST("/change_role", ssoProxy)
-		private_auth.DELETE("/delete_user", ssoProxy)
+		private_auth.POST("/change_role", middlewares.RequireRole("admin"), ssoProxy)
+		private_auth.DELETE("/delete_user", middlewares.RequireRole("admin"), ssoProxy)
 	}
 
 	pub_resource := r.Group("/api/v1/resources")
-	pub_resource.Use(middlewares.AuthMiddleware(ssoClient, log))
+	pub_resource.Use(middlewares.AuthMiddleware(ssoClient, cfg.SSO.JWTSecret, log))
 	{
 		pub_resource.GET("", resourceHandler.GetAvailableResources)
 		pub_resource.GET("/:id", resourceHandler.GetResource)
-		pub_resource.POST("", resourceHandler.CreateResource)
+		pub_resource.POST("", middlewares.RequireRole("admin"), resourceHandler.CreateResource)
 		pub_resource.GET("/list", resourceHandler.GetResourcesList)
-		pub_resource.PUT("/:id", resourceHandler.UpdateResource)
-		pub_resource.DELETE("/:id", resourceHandler.DeleteResource)
+		pub_resource.PUT("/:id", middlewares.RequireRole("admin"), resourceHandler.UpdateResource)
+		pub_resource.DELETE("/:id", middlewares.RequireRole("admin"), resourceHandler.DeleteResource)
 		pub_resource.PATCH("/:id/status", resourceHandler.ChangeResourceStatus)
 
 		pub_resource.GET("/:id/status", resourceHandler.CheckResourceStatus)
@@ -96,7 +96,7 @@ func Setup(cfg *config.Config, log *slog.Logger, ssoClient *sso.Client) *http.Se
 	}
 
 	bookings := r.Group("/api/v1/bookings")
-	bookings.Use(middlewares.AuthMiddleware(ssoClient, log))
+	bookings.Use(middlewares.AuthMiddleware(ssoClient, cfg.SSO.JWTSecret, log))
 	{
 		bookings.POST("", bookingHandler.CreateBooking)
 		bookings.GET("/:booking_id", bookingHandler.GetBooking)
@@ -105,9 +105,9 @@ func Setup(cfg *config.Config, log *slog.Logger, ssoClient *sso.Client) *http.Se
 	}
 
 	adminBookings := r.Group("/api/v1/admin/bookings")
-	adminBookings.Use(middlewares.AuthMiddleware(ssoClient, log))
+	adminBookings.Use(middlewares.AuthMiddleware(ssoClient, cfg.SSO.JWTSecret, log))
 	{
-		adminBookings.POST("/:booking_id/cancel", bookingHandler.AdminCancelBooking)
+		adminBookings.POST("/:booking_id/cancel", middlewares.RequireRole("admin"), bookingHandler.AdminCancelBooking)
 	}
 
 	return &http.Server{
