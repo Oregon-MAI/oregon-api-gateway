@@ -2,6 +2,7 @@ package middlewares
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -18,13 +19,13 @@ import (
 
 type authPayload struct {
 	ginCtx   *gin.Context
-	ctx      context.Context
 	tokenStr string
 	userID   string
 	roles    []string
+	mdPairs  []string
 }
 
-type authStep func(*authPayload) error
+type authStep func(context.Context, *authPayload) error
 
 func AuthMiddleware(client *sso.Client, jwtSecret string, log *slog.Logger) gin.HandlerFunc {
 	tracer := otel.GetTracerProvider().Tracer("gateway/auth_middleware")
@@ -42,17 +43,19 @@ func AuthMiddleware(client *sso.Client, jwtSecret string, log *slog.Logger) gin.
 
 		payload := &authPayload{
 			ginCtx: c,
-			ctx:    ctx,
 		}
 
 		for _, step := range pipeline {
-			if err := step(payload); err != nil {
+			if err := step(ctx, payload); err != nil {
 				abortPipeline(c, span, reqLog, err)
 				return
 			}
 		}
 
-		c.Request = c.Request.WithContext(payload.ctx)
+		if len(payload.mdPairs) > 0 {
+			ctx = metadata.AppendToOutgoingContext(ctx, payload.mdPairs...)
+		}
+		c.Request = c.Request.WithContext(ctx)
 		c.Next()
 	}
 }
@@ -68,19 +71,19 @@ func abortPipeline(c *gin.Context, span trace.Span, reqLog *slog.Logger, err err
 }
 
 func extractTokenStep() authStep {
-	return func(p *authPayload) error {
+	return func(_ context.Context, p *authPayload) error {
 		h := p.ginCtx.GetHeader("Authorization")
 		if h == "" {
-			return fmt.Errorf("missing_authorization_header")
+			return errors.New("missing_authorization_header")
 		}
 
 		if !strings.HasPrefix(h, "Bearer ") {
-			return fmt.Errorf("invalid_authorization_format")
+			return errors.New("invalid_authorization_format")
 		}
 
 		token := strings.TrimSpace(strings.TrimPrefix(h, "Bearer "))
 		if token == "" {
-			return fmt.Errorf("empty_token")
+			return errors.New("empty_token")
 		}
 
 		p.tokenStr = token
@@ -89,8 +92,8 @@ func extractTokenStep() authStep {
 }
 
 func validateSSOStep(client *sso.Client) authStep {
-	return func(p *authPayload) error {
-		resp, err := client.Validate(p.ctx, &sso.ValidateRequest{
+	return func(ctx context.Context, p *authPayload) error {
+		resp, err := client.Validate(ctx, &sso.ValidateRequest{
 			AccessToken: p.tokenStr,
 		})
 		if err != nil {
@@ -98,14 +101,14 @@ func validateSSOStep(client *sso.Client) authStep {
 		}
 
 		if !resp.Validate {
-			return fmt.Errorf("token_invalid_by_sso")
+			return errors.New("token_invalid_by_sso")
 		}
 		return nil
 	}
 }
 
 func parseClaimsStep(secret string, reqLog *slog.Logger) authStep {
-	return func(p *authPayload) error {
+	return func(_ context.Context, p *authPayload) error {
 		token, err := jwt.Parse(p.tokenStr, func(token *jwt.Token) (any, error) {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
@@ -118,48 +121,45 @@ func parseClaimsStep(secret string, reqLog *slog.Logger) authStep {
 			return nil
 		}
 
-		claims, ok := token.Claims.(jwt.MapClaims)
-		if !ok {
-			return nil
-		}
-
-		if id, ok := claims["id"].(string); ok {
-			p.userID = id
-		}
-
-		if rolesVal, ok := claims["roles"].([]any); ok {
-			for _, r := range rolesVal {
-				if strRole, ok := r.(string); ok {
-					p.roles = append(p.roles, strRole)
-				}
-			}
-		}
-
+		extractClaims(token, p)
 		return nil
 	}
 }
 
+func extractClaims(token *jwt.Token, p *authPayload) {
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return
+	}
+
+	if id, ok := claims["id"].(string); ok {
+		p.userID = id
+	}
+
+	if rolesVal, ok := claims["roles"].([]any); ok {
+		for _, r := range rolesVal {
+			if strRole, ok := r.(string); ok {
+				p.roles = append(p.roles, strRole)
+			}
+		}
+	}
+}
+
 func enrichContextStep() authStep {
-	return func(p *authPayload) error {
+	return func(_ context.Context, p *authPayload) error {
 		rolesStr := strings.Join(p.roles, ",")
 
 		if p.userID != "" {
 			p.ginCtx.Set("user_id", p.userID)
+			p.mdPairs = append(p.mdPairs, "x-user-id", p.userID)
 		}
+
 		if len(p.roles) > 0 {
 			p.ginCtx.Set("roles", p.roles)
 		}
 
-		var mdPairs []string
-		if p.userID != "" {
-			mdPairs = append(mdPairs, "x-user-id", p.userID)
-		}
 		if rolesStr != "" {
-			mdPairs = append(mdPairs, "x-user-role", rolesStr)
-		}
-
-		if len(mdPairs) > 0 {
-			p.ctx = metadata.AppendToOutgoingContext(p.ctx, mdPairs...)
+			p.mdPairs = append(p.mdPairs, "x-user-role", rolesStr)
 		}
 
 		return nil
