@@ -4,7 +4,6 @@ go 1.25.7
 
 require (
 	github.com/Oregon-MAI/oregon-infrastructure v0.0.0-20260409085633-c68247903b6e
-	github.com/acyushka/oregon-infra v0.0.0-20260325192359-d9d54c11f180
 	github.com/gin-gonic/gin v1.12.0
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/ilyakaznacheev/cleanenv v1.5.0

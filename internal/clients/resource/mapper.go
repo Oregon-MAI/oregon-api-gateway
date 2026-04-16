@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
-	resourcev1 "github.com/acyushka/oregon-infra/contracts/gen/go/resource"
+	resourcev1 "github.com/Oregon-MAI/oregon-infrastructure/contracts/gen/go/resource"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )

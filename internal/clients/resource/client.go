@@ -4,7 +4,7 @@ import (
 	"log/slog"
 
 	"github.com/OnYyon/oregon-api-gateway/internal/clients/grpc"
-	resourcev1 "github.com/acyushka/oregon-infra/contracts/gen/go/resource"
+	resourcev1 "github.com/Oregon-MAI/oregon-infrastructure/contracts/gen/go/resource"
 )
 
 type Client struct {
