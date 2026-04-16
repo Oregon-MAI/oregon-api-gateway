@@ -5,7 +5,7 @@ import (
 
 	"github.com/OnYyon/oregon-api-gateway/internal/clients/grpc"
 	"github.com/OnYyon/oregon-api-gateway/internal/clients/resource"
-	resourcev1 "github.com/acyushka/oregon-infra/contracts/gen/go/resource"
+	resourcev1 "github.com/Oregon-MAI/oregon-infrastructure/contracts/gen/go/resource"
 )
 
 type Service struct {

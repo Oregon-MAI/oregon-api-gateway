@@ -76,6 +76,16 @@ func Setup(cfg *config.Config, log *slog.Logger, ssoClient *sso.Client) *http.Se
 		private_auth.DELETE("/delete_user", middlewares.RequireRole("admin"), ssoProxy)
 	}
 
+	private_roles := r.Group("/api/v1/roles")
+	private_roles.Use(middlewares.AuthMiddleware(ssoClient, cfg.SSO.JWTSecret, log))
+	{
+		private_roles.GET("/roles", middlewares.RequireRole("admin"), ssoProxy)
+		private_roles.GET("/role", middlewares.RequireRole("admin"), ssoProxy)
+		private_roles.POST("/create_role", middlewares.RequireRole("admin"), ssoProxy)
+		private_roles.PATCH("/update_role", middlewares.RequireRole("admin"), ssoProxy)
+		private_roles.DELETE("/delete_role", middlewares.RequireRole("admin"), ssoProxy)
+	}
+
 	pub_resource := r.Group("/api/v1/resources")
 	pub_resource.Use(middlewares.AuthMiddleware(ssoClient, cfg.SSO.JWTSecret, log))
 	{

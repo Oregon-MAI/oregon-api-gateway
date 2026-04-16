@@ -122,6 +122,7 @@ func parseClaimsStep(secret string, reqLog *slog.Logger) authStep {
 		}
 
 		extractClaims(token, p)
+		fmt.Println(p.roles, p.userID)
 		return nil
 	}
 }
