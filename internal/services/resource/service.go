@@ -16,8 +16,17 @@ func NewService(client *resource.Client) *Service {
 	return &Service{client: client}
 }
 
-func (s *Service) GetAvailableResources(ctx context.Context, types []string, location string) (*resource.GetAvailableResourcesDTO, error) {
-	req := resource.ToGetAvailableResourcesRequest(types, location)
+func (s *Service) GetAvailableResources(ctx context.Context, types []string, location string) (*resourcev1.GetAvailableResourcesResponse, error) {
+	req := &resourcev1.GetAvailableResourcesRequest{
+		Location: location,
+		Types:    make([]resourcev1.ResourceType, 0, len(types)),
+	}
+
+	for _, t := range types {
+		if rt, ok := resourcev1.ResourceType_value[t]; ok {
+			req.Types = append(req.Types, resourcev1.ResourceType(rt))
+		}
+	}
 
 	resp, err := grpc.Call(
 		ctx,
@@ -34,11 +43,11 @@ func (s *Service) GetAvailableResources(ctx context.Context, types []string, loc
 		return nil, resource.MapGRPCErr(err)
 	}
 
-	return resource.FromGetAvailableResourcesResponse(resp), nil
+	return resp, nil
 }
 
-func (s *Service) GetResource(ctx context.Context, resourceID string) (*resource.ResourceDTO, error) {
-	req := resource.ToGetResourceRequest(resourceID)
+func (s *Service) GetResource(ctx context.Context, resourceID string) (*resourcev1.GetResourceResponse, error) {
+	req := &resourcev1.GetResourceRequest{ResourceId: resourceID}
 
 	resp, err := grpc.Call(
 		ctx,
@@ -55,11 +64,11 @@ func (s *Service) GetResource(ctx context.Context, resourceID string) (*resource
 		return nil, resource.MapGRPCErr(err)
 	}
 
-	return resource.FromResource(resp.Resource), nil
+	return resp, nil
 }
 
-func (s *Service) CheckResourceStatus(ctx context.Context, resourceID string) (*resource.CheckResourceStatusDTO, error) {
-	req := resource.ToCheckResourceStatusRequest(resourceID)
+func (s *Service) CheckResourceStatus(ctx context.Context, resourceID string) (*resourcev1.CheckResourceStatusResponse, error) {
+	req := &resourcev1.CheckResourceStatusRequest{ResourceId: resourceID}
 
 	resp, err := grpc.Call(
 		ctx,
@@ -76,12 +85,10 @@ func (s *Service) CheckResourceStatus(ctx context.Context, resourceID string) (*
 		return nil, resource.MapGRPCErr(err)
 	}
 
-	return resource.FromCheckResourceStatusResponse(resp), nil
+	return resp, nil
 }
 
-func (s *Service) CreateResource(ctx context.Context, dto *resource.CreateResourceRequestDTO) (*resource.ResourceDTO, error) {
-	req := resource.ToCreateResourceRequest(dto)
-
+func (s *Service) CreateResource(ctx context.Context, req *resourcev1.CreateResourceRequest) (*resourcev1.CreateResourceResponse, error) {
 	resp, err := grpc.Call(
 		ctx,
 		s.client.PublicGRPCClient().Conn(),
@@ -97,11 +104,19 @@ func (s *Service) CreateResource(ctx context.Context, dto *resource.CreateResour
 		return nil, resource.MapGRPCErr(err)
 	}
 
-	return resource.FromResource(resp.Resource), nil
+	return resp, nil
 }
 
-func (s *Service) GetResourcesList(ctx context.Context, types []string) (*resource.GetResourcesListDTO, error) {
-	req := resource.ToGetResourcesListRequest(types)
+func (s *Service) GetResourcesList(ctx context.Context, types []string) (*resourcev1.GetResourcesListResponse, error) {
+	req := &resourcev1.GetResourcesListRequest{
+		Types: make([]resourcev1.ResourceType, 0, len(types)),
+	}
+
+	for _, t := range types {
+		if rt, ok := resourcev1.ResourceType_value[t]; ok {
+			req.Types = append(req.Types, resourcev1.ResourceType(rt))
+		}
+	}
 
 	resp, err := grpc.Call(
 		ctx,
@@ -118,12 +133,10 @@ func (s *Service) GetResourcesList(ctx context.Context, types []string) (*resour
 		return nil, resource.MapGRPCErr(err)
 	}
 
-	return resource.FromGetResourcesListResponse(resp), nil
+	return resp, nil
 }
 
-func (s *Service) UpdateResource(ctx context.Context, dto *resource.UpdateResourceRequestDTO) (*resource.ResourceDTO, error) {
-	req := resource.ToUpdateResourceRequest(dto)
-
+func (s *Service) UpdateResource(ctx context.Context, req *resourcev1.UpdateResourceRequest) (*resourcev1.UpdateResourceResponse, error) {
 	resp, err := grpc.Call(
 		ctx,
 		s.client.PublicGRPCClient().Conn(),
@@ -139,11 +152,11 @@ func (s *Service) UpdateResource(ctx context.Context, dto *resource.UpdateResour
 		return nil, resource.MapGRPCErr(err)
 	}
 
-	return resource.FromResource(resp.Resource), nil
+	return resp, nil
 }
 
 func (s *Service) DeleteResource(ctx context.Context, resourceID string) (bool, error) {
-	req := resource.ToDeleteResourceRequest(resourceID)
+	req := &resourcev1.DeleteResourceRequest{ResourceId: resourceID}
 
 	resp, err := grpc.Call(
 		ctx,
@@ -163,9 +176,7 @@ func (s *Service) DeleteResource(ctx context.Context, resourceID string) (bool, 
 	return resp.Success, nil
 }
 
-func (s *Service) ChangeResourceStatus(ctx context.Context, dto *resource.ChangeResourceStatusRequestDTO) (*resource.ResourceDTO, error) {
-	req := resource.ToChangeResourceStatusRequest(dto)
-
+func (s *Service) ChangeResourceStatus(ctx context.Context, req *resourcev1.ChangeResourceStatusRequest) (*resourcev1.ChangeResourceStatusResponse, error) {
 	resp, err := grpc.Call(
 		ctx,
 		s.client.PublicGRPCClient().Conn(),
@@ -181,12 +192,10 @@ func (s *Service) ChangeResourceStatus(ctx context.Context, dto *resource.Change
 		return nil, resource.MapGRPCErr(err)
 	}
 
-	return resource.FromResource(resp.Resource), nil
+	return resp, nil
 }
 
-func (s *Service) UpdateResourceOccupancy(ctx context.Context, dto *resource.UpdateResourceOccupancyRequestDTO) (*resource.UpdateResourceOccupancyResponseDTO, error) {
-	req := resource.ToUpdateResourceOccupancyRequest(dto)
-
+func (s *Service) UpdateResourceOccupancy(ctx context.Context, req *resourcev1.UpdateResourceOccupancyRequest) (*resourcev1.UpdateResourceOccupancyResponse, error) {
 	resp, err := grpc.Call(
 		ctx,
 		s.client.BookingGRPCClient().Conn(),
@@ -202,5 +211,5 @@ func (s *Service) UpdateResourceOccupancy(ctx context.Context, dto *resource.Upd
 		return nil, resource.MapGRPCErr(err)
 	}
 
-	return resource.FromUpdateResourceOccupancyResponse(resp), nil
+	return resp, nil
 }

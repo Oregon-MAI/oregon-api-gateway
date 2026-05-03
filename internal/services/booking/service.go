@@ -7,6 +7,7 @@ import (
 	"github.com/OnYyon/oregon-api-gateway/internal/clients/booking"
 	"github.com/OnYyon/oregon-api-gateway/internal/clients/grpc"
 	bookingv1 "github.com/Oregon-MAI/oregon-infrastructure/contracts/gen/go/booking"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type Service struct {
@@ -21,9 +22,7 @@ func (s *Service) Client() *booking.Client {
 	return s.client
 }
 
-func (s *Service) CreateBooking(ctx context.Context, dto *booking.CreateBookingRequestDTO) (*booking.BookingResponseDTO, error) {
-	req := booking.ToCreateBookingRequest(dto)
-
+func (s *Service) CreateBooking(ctx context.Context, req *bookingv1.CreateBookingRequest) (*bookingv1.CreateBookingResponse, error) {
 	resp, err := grpc.Call(
 		ctx,
 		s.client.BookingGRPCClient().Conn(),
@@ -39,11 +38,11 @@ func (s *Service) CreateBooking(ctx context.Context, dto *booking.CreateBookingR
 		return nil, booking.MapGRPCErr(err)
 	}
 
-	return booking.FromCreateBookingResponse(resp), nil
+	return resp, nil
 }
 
-func (s *Service) GetBooking(ctx context.Context, bookingID string) (*booking.BookingResponseDTO, error) {
-	req := booking.ToGetBookingRequest(bookingID)
+func (s *Service) GetBooking(ctx context.Context, bookingID string) (*bookingv1.GetBookingResponse, error) {
+	req := &bookingv1.GetBookingRequest{BookingId: bookingID}
 
 	resp, err := grpc.Call(
 		ctx,
@@ -60,11 +59,11 @@ func (s *Service) GetBooking(ctx context.Context, bookingID string) (*booking.Bo
 		return nil, booking.MapGRPCErr(err)
 	}
 
-	return booking.FromGetBookingResponse(resp), nil
+	return resp, nil
 }
 
-func (s *Service) UserCancelBooking(ctx context.Context, bookingID string) (*booking.BookingResponseDTO, error) {
-	req := booking.ToUserCancelBookingRequest(bookingID)
+func (s *Service) UserCancelBooking(ctx context.Context, bookingID string) (*bookingv1.UserCancelBookingResponse, error) {
+	req := &bookingv1.UserCancelBookingRequest{BookingId: bookingID}
 
 	resp, err := grpc.Call(
 		ctx,
@@ -81,11 +80,11 @@ func (s *Service) UserCancelBooking(ctx context.Context, bookingID string) (*boo
 		return nil, booking.MapGRPCErr(err)
 	}
 
-	return booking.FromUserCancelBookingResponse(resp), nil
+	return resp, nil
 }
 
-func (s *Service) AdminCancelBooking(ctx context.Context, bookingID string) (*booking.BookingResponseDTO, error) {
-	req := booking.ToAdminCancelBookingRequest(bookingID)
+func (s *Service) AdminCancelBooking(ctx context.Context, bookingID string) (*bookingv1.AdminCancelBookingResponse, error) {
+	req := &bookingv1.AdminCancelBookingRequest{BookingId: bookingID}
 
 	resp, err := grpc.Call(
 		ctx,
@@ -102,11 +101,11 @@ func (s *Service) AdminCancelBooking(ctx context.Context, bookingID string) (*bo
 		return nil, booking.MapGRPCErr(err)
 	}
 
-	return booking.FromAdminCancelBookingResponse(resp), nil
+	return resp, nil
 }
 
-func (s *Service) ListBookingsByUser(ctx context.Context, userID string) (*booking.ListBookingsResponseDTO, error) {
-	req := booking.ToListBookingsByUserRequest(userID)
+func (s *Service) ListBookingsByUser(ctx context.Context, userID string) (*bookingv1.ListBookingsByUserResponse, error) {
+	req := &bookingv1.ListBookingsByUserRequest{UserId: userID}
 
 	resp, err := grpc.Call(
 		ctx,
@@ -123,11 +122,20 @@ func (s *Service) ListBookingsByUser(ctx context.Context, userID string) (*booki
 		return nil, booking.MapGRPCErr(err)
 	}
 
-	return booking.FromListBookingsByUserResponse(resp), nil
+	return resp, nil
 }
 
-func (s *Service) ListBookingsByResource(ctx context.Context, resourceID string, from, to time.Time) (*booking.ListBookingsResponseDTO, error) {
-	req := booking.ToListBookingsByResourceRequest(resourceID, from, to)
+func (s *Service) ListBookingsByResource(ctx context.Context, resourceID string, from, to time.Time) (*bookingv1.ListBookingsByResourceResponse, error) {
+	req := &bookingv1.ListBookingsByResourceRequest{
+		ResourceId: resourceID,
+	}
+
+	if !from.IsZero() {
+		req.From = timestamppb.New(from)
+	}
+	if !to.IsZero() {
+		req.To = timestamppb.New(to)
+	}
 
 	resp, err := grpc.Call(
 		ctx,
@@ -144,5 +152,5 @@ func (s *Service) ListBookingsByResource(ctx context.Context, resourceID string,
 		return nil, booking.MapGRPCErr(err)
 	}
 
-	return booking.FromListBookingsByResourceResponse(resp), nil
+	return resp, nil
 }

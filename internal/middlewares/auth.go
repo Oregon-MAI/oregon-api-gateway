@@ -29,12 +29,11 @@ type authStep func(context.Context, *authPayload) error
 
 func AuthMiddleware(client *sso.Client, jwtSecret string, log *slog.Logger) gin.HandlerFunc {
 	tracer := otel.GetTracerProvider().Tracer("gateway/auth_middleware")
-	pipeline := []authStep{
-		extractTokenStep(),
-		validateSSOStep(client),
-		parseClaimsStep(jwtSecret, log),
-		enrichContextStep(),
-	}
+
+	extractStep := extractTokenStep()
+	validateStep := validateSSOStep(client)
+	parseStep := parseClaimsStep(jwtSecret, log)
+	enrichStep := enrichContextStep()
 
 	return func(c *gin.Context) {
 		ctx, span := tracer.Start(c.Request.Context(), "Auth.Pipeline", trace.WithSpanKind(trace.SpanKindServer))
@@ -45,11 +44,29 @@ func AuthMiddleware(client *sso.Client, jwtSecret string, log *slog.Logger) gin.
 			ginCtx: c,
 		}
 
-		for _, step := range pipeline {
-			if err := step(ctx, payload); err != nil {
-				abortPipeline(c, span, reqLog, err)
-				return
-			}
+		if err := extractStep(ctx, payload); err != nil {
+			abortPipeline(c, span, reqLog, err)
+			return
+		}
+
+		errChan := make(chan error, 1)
+		go func() {
+			errChan <- validateStep(ctx, payload)
+		}()
+
+		if err := parseStep(ctx, payload); err != nil {
+			abortPipeline(c, span, reqLog, err)
+			return
+		}
+
+		if err := <-errChan; err != nil {
+			abortPipeline(c, span, reqLog, err)
+			return
+		}
+
+		if err := enrichStep(ctx, payload); err != nil {
+			abortPipeline(c, span, reqLog, err)
+			return
 		}
 
 		if len(payload.mdPairs) > 0 {

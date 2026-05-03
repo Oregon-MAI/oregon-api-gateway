@@ -4,7 +4,7 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -o /app/bin/api-gateway ./cmd/api-gateway/main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -tags=sonic -o /app/bin/api-gateway ./cmd/api-gateway/main.go
 
 FROM debian:bookworm-slim
 WORKDIR /app

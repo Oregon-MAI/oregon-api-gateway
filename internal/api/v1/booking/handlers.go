@@ -1,16 +1,28 @@
 package booking
 
 import (
+	"io"
 	"log/slog"
 	"net/http"
 	"time"
 
 	bookingclient "github.com/OnYyon/oregon-api-gateway/internal/clients/booking"
 	bookingservice "github.com/OnYyon/oregon-api-gateway/internal/services/booking"
+	bookingv1 "github.com/Oregon-MAI/oregon-infrastructure/contracts/gen/go/booking"
 	"github.com/gin-gonic/gin"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
+	"google.golang.org/protobuf/encoding/protojson"
 )
+
+var protoJSONMarshaler = protojson.MarshalOptions{
+	EmitUnpopulated: true,
+	UseProtoNames:   true,
+}
+
+var protoJSONUnmarshaler = protojson.UnmarshalOptions{
+	DiscardUnknown: true,
+}
 
 type Handler struct {
 	service bookingservice.Service
@@ -32,28 +44,33 @@ func (h *Handler) CreateBooking(c *gin.Context) {
 
 	c.Request = c.Request.WithContext(ctx)
 
-	var reqDTO bookingclient.CreateBookingRequestDTO
-	if err := c.ShouldBindJSON(&reqDTO); err != nil {
-		h.log.Warn("invalid request body", slog.Any("error", err))
-		c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+	body, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, map[string]string{"error": "failed to read body"})
+		return
+	}
+
+	var req bookingv1.CreateBookingRequest
+	if err := protoJSONUnmarshaler.Unmarshal(body, &req); err != nil {
+		h.log.Warn("invalid request body format", slog.Any("error", err))
+		c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body format"})
 		return
 	}
 
 	userID := c.GetString("user_id")
 	if userID != "" {
-		reqDTO.UserID = userID
+		req.UserId = userID
 	}
 
-	resp, err := h.service.CreateBooking(ctx, &reqDTO)
+	resp, err := h.service.CreateBooking(ctx, &req)
 	if err != nil {
 		h.log.Error("failed to create booking", slog.Any("error", err))
-		c.JSON(bookingclient.GRPCErrToHTTPStatus(err), map[string]string{
-			"error": err.Error(),
-		})
+		c.JSON(bookingclient.GRPCErrToHTTPStatus(err), map[string]string{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusCreated, resp)
+	b, _ := protoJSONMarshaler.Marshal(resp)
+	c.Data(http.StatusCreated, "application/json", b)
 }
 
 func (h *Handler) GetBooking(c *gin.Context) {
@@ -71,13 +88,12 @@ func (h *Handler) GetBooking(c *gin.Context) {
 	resp, err := h.service.GetBooking(ctx, bookingID)
 	if err != nil {
 		h.log.Error("failed to get booking", slog.String("booking_id", bookingID), slog.Any("error", err))
-		c.JSON(bookingclient.GRPCErrToHTTPStatus(err), map[string]string{
-			"error": err.Error(),
-		})
+		c.JSON(bookingclient.GRPCErrToHTTPStatus(err), map[string]string{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, resp)
+	b, _ := protoJSONMarshaler.Marshal(resp)
+	c.Data(http.StatusOK, "application/json", b)
 }
 
 func (h *Handler) UserCancelBooking(c *gin.Context) {
@@ -95,13 +111,12 @@ func (h *Handler) UserCancelBooking(c *gin.Context) {
 	resp, err := h.service.UserCancelBooking(ctx, bookingID)
 	if err != nil {
 		h.log.Error("failed to cancel booking (user)", slog.String("booking_id", bookingID), slog.Any("error", err))
-		c.JSON(bookingclient.GRPCErrToHTTPStatus(err), map[string]string{
-			"error": err.Error(),
-		})
+		c.JSON(bookingclient.GRPCErrToHTTPStatus(err), map[string]string{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, resp)
+	b, _ := protoJSONMarshaler.Marshal(resp)
+	c.Data(http.StatusOK, "application/json", b)
 }
 
 func (h *Handler) AdminCancelBooking(c *gin.Context) {
@@ -119,13 +134,12 @@ func (h *Handler) AdminCancelBooking(c *gin.Context) {
 	resp, err := h.service.AdminCancelBooking(ctx, bookingID)
 	if err != nil {
 		h.log.Error("failed to cancel booking (admin)", slog.String("booking_id", bookingID), slog.Any("error", err))
-		c.JSON(bookingclient.GRPCErrToHTTPStatus(err), map[string]string{
-			"error": err.Error(),
-		})
+		c.JSON(bookingclient.GRPCErrToHTTPStatus(err), map[string]string{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, resp)
+	b, _ := protoJSONMarshaler.Marshal(resp)
+	c.Data(http.StatusOK, "application/json", b)
 }
 
 func (h *Handler) ListBookingsByUser(c *gin.Context) {
@@ -136,19 +150,18 @@ func (h *Handler) ListBookingsByUser(c *gin.Context) {
 
 	userID := c.Query("user_id")
 	if userID == "" {
-		userID = c.GetString("user_id") // fallback to current user
+		userID = c.GetString("user_id")
 	}
 
 	resp, err := h.service.ListBookingsByUser(ctx, userID)
 	if err != nil {
 		h.log.Error("failed to list bookings by user", slog.String("user_id", userID), slog.Any("error", err))
-		c.JSON(bookingclient.GRPCErrToHTTPStatus(err), map[string]string{
-			"error": err.Error(),
-		})
+		c.JSON(bookingclient.GRPCErrToHTTPStatus(err), map[string]string{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, resp)
+	b, _ := protoJSONMarshaler.Marshal(resp)
+	c.Data(http.StatusOK, "application/json", b)
 }
 
 func (h *Handler) ListBookingsByResource(c *gin.Context) {
@@ -181,11 +194,10 @@ func (h *Handler) ListBookingsByResource(c *gin.Context) {
 	resp, err := h.service.ListBookingsByResource(ctx, resourceID, from, to)
 	if err != nil {
 		h.log.Error("failed to list bookings by resource", slog.String("resource_id", resourceID), slog.Any("error", err))
-		c.JSON(bookingclient.GRPCErrToHTTPStatus(err), map[string]string{
-			"error": err.Error(),
-		})
+		c.JSON(bookingclient.GRPCErrToHTTPStatus(err), map[string]string{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, resp)
+	b, _ := protoJSONMarshaler.Marshal(resp)
+	c.Data(http.StatusOK, "application/json", b)
 }

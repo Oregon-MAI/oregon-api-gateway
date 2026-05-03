@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/OnYyon/oregon-api-gateway/internal/api/v1/booking"
 	"github.com/OnYyon/oregon-api-gateway/internal/api/v1/resource"
@@ -119,6 +120,12 @@ func Setup(cfg *config.Config, log *slog.Logger, ssoClient *sso.Client) *http.Se
 	{
 		adminBookings.POST("/:booking_id/cancel", middlewares.RequireRole("admin"), bookingHandler.AdminCancelBooking)
 	}
+	r.GET("/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"status":    "ok",
+			"timestamp": time.Now().Unix(),
+		})
+	})
 
 	return &http.Server{
 		Addr:         fmt.Sprintf("%s:%d", cfg.HTTP.Host, cfg.HTTP.Port),
