@@ -22,11 +22,15 @@ type bufferPool struct {
 }
 
 func (b *bufferPool) Get() []byte {
-	return b.pool.Get().([]byte)
+	v := b.pool.Get()
+	if p, ok := v.(*[]byte); ok {
+		return *p
+	}
+	return make([]byte, 32*1024)
 }
 
 func (b *bufferPool) Put(buf []byte) {
-	b.pool.Put(buf)
+	b.pool.Put(&buf)
 }
 
 func SSOProxy(targetURL string, log *slog.Logger) gin.HandlerFunc {
@@ -59,7 +63,8 @@ func SSOProxy(targetURL string, log *slog.Logger) gin.HandlerFunc {
 	proxy.BufferPool = &bufferPool{
 		pool: sync.Pool{
 			New: func() any {
-				return make([]byte, 32*1024)
+				b := make([]byte, 32*1024)
+				return &b
 			},
 		},
 	}

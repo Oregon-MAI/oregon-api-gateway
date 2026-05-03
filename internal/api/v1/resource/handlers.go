@@ -55,7 +55,12 @@ func (h *Handler) GetAvailableResources(c *gin.Context) {
 		return
 	}
 
-	b, _ := protoJSONMarshaler.Marshal(resp)
+	b, err := protoJSONMarshaler.Marshal(resp)
+	if err != nil {
+		h.log.Error("failed to marshal response", slog.Any("error", err))
+		c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+		return
+	}
 	c.Data(http.StatusOK, "application/json", b)
 }
 
@@ -78,7 +83,12 @@ func (h *Handler) GetResource(c *gin.Context) {
 		return
 	}
 
-	b, _ := protoJSONMarshaler.Marshal(resp)
+	b, err := protoJSONMarshaler.Marshal(resp)
+	if err != nil {
+		h.log.Error("failed to marshal response", slog.Any("error", err))
+		c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+		return
+	}
 	c.Data(http.StatusOK, "application/json", b)
 }
 
@@ -101,7 +111,12 @@ func (h *Handler) CheckResourceStatus(c *gin.Context) {
 		return
 	}
 
-	b, _ := protoJSONMarshaler.Marshal(resp)
+	b, err := protoJSONMarshaler.Marshal(resp)
+	if err != nil {
+		h.log.Error("failed to marshal response", slog.Any("error", err))
+		c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+		return
+	}
 	c.Data(http.StatusOK, "application/json", b)
 }
 
@@ -130,7 +145,12 @@ func (h *Handler) CreateResource(c *gin.Context) {
 		return
 	}
 
-	b, _ := protoJSONMarshaler.Marshal(resp)
+	b, err := protoJSONMarshaler.Marshal(resp)
+	if err != nil {
+		h.log.Error("failed to marshal response", slog.Any("error", err))
+		c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+		return
+	}
 	c.Data(http.StatusCreated, "application/json", b)
 }
 
@@ -149,7 +169,12 @@ func (h *Handler) GetResourcesList(c *gin.Context) {
 		return
 	}
 
-	b, _ := protoJSONMarshaler.Marshal(resp)
+	b, err := protoJSONMarshaler.Marshal(resp)
+	if err != nil {
+		h.log.Error("failed to marshal response", slog.Any("error", err))
+		c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+		return
+	}
 	c.Data(http.StatusOK, "application/json", b)
 }
 
@@ -183,7 +208,12 @@ func (h *Handler) UpdateResource(c *gin.Context) {
 		return
 	}
 
-	b, _ := protoJSONMarshaler.Marshal(resp)
+	b, err := protoJSONMarshaler.Marshal(resp)
+	if err != nil {
+		h.log.Error("failed to marshal response", slog.Any("error", err))
+		c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+		return
+	}
 	c.Data(http.StatusOK, "application/json", b)
 }
 
@@ -239,7 +269,12 @@ func (h *Handler) ChangeResourceStatus(c *gin.Context) {
 		return
 	}
 
-	b, _ := protoJSONMarshaler.Marshal(resp)
+	b, err := protoJSONMarshaler.Marshal(resp)
+	if err != nil {
+		h.log.Error("failed to marshal response", slog.Any("error", err))
+		c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+		return
+	}
 	c.Data(http.StatusOK, "application/json", b)
 }
 
@@ -273,6 +308,11 @@ func (h *Handler) UpdateResourceOccupancy(c *gin.Context) {
 		return
 	}
 
-	b, _ := protoJSONMarshaler.Marshal(resp)
+	b, err := protoJSONMarshaler.Marshal(resp)
+	if err != nil {
+		h.log.Error("failed to marshal response", slog.Any("error", err))
+		c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+		return
+	}
 	c.Data(http.StatusOK, "application/json", b)
 }

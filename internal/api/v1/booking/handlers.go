@@ -69,7 +69,12 @@ func (h *Handler) CreateBooking(c *gin.Context) {
 		return
 	}
 
-	b, _ := protoJSONMarshaler.Marshal(resp)
+	b, err := protoJSONMarshaler.Marshal(resp)
+	if err != nil {
+		h.log.Error("failed to marshal response", slog.Any("error", err))
+		c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+		return
+	}
 	c.Data(http.StatusCreated, "application/json", b)
 }
 
@@ -92,7 +97,12 @@ func (h *Handler) GetBooking(c *gin.Context) {
 		return
 	}
 
-	b, _ := protoJSONMarshaler.Marshal(resp)
+	b, err := protoJSONMarshaler.Marshal(resp)
+	if err != nil {
+		h.log.Error("failed to marshal response", slog.Any("error", err))
+		c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+		return
+	}
 	c.Data(http.StatusOK, "application/json", b)
 }
 
@@ -115,7 +125,12 @@ func (h *Handler) UserCancelBooking(c *gin.Context) {
 		return
 	}
 
-	b, _ := protoJSONMarshaler.Marshal(resp)
+	b, err := protoJSONMarshaler.Marshal(resp)
+	if err != nil {
+		h.log.Error("failed to marshal response", slog.Any("error", err))
+		c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+		return
+	}
 	c.Data(http.StatusOK, "application/json", b)
 }
 
@@ -138,7 +153,12 @@ func (h *Handler) AdminCancelBooking(c *gin.Context) {
 		return
 	}
 
-	b, _ := protoJSONMarshaler.Marshal(resp)
+	b, err := protoJSONMarshaler.Marshal(resp)
+	if err != nil {
+		h.log.Error("failed to marshal response", slog.Any("error", err))
+		c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+		return
+	}
 	c.Data(http.StatusOK, "application/json", b)
 }
 
@@ -160,7 +180,12 @@ func (h *Handler) ListBookingsByUser(c *gin.Context) {
 		return
 	}
 
-	b, _ := protoJSONMarshaler.Marshal(resp)
+	b, err := protoJSONMarshaler.Marshal(resp)
+	if err != nil {
+		h.log.Error("failed to marshal response", slog.Any("error", err))
+		c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+		return
+	}
 	c.Data(http.StatusOK, "application/json", b)
 }
 
@@ -198,6 +223,11 @@ func (h *Handler) ListBookingsByResource(c *gin.Context) {
 		return
 	}
 
-	b, _ := protoJSONMarshaler.Marshal(resp)
+	b, err := protoJSONMarshaler.Marshal(resp)
+	if err != nil {
+		h.log.Error("failed to marshal response", slog.Any("error", err))
+		c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+		return
+	}
 	c.Data(http.StatusOK, "application/json", b)
 }
