@@ -2,9 +2,12 @@ package sso
 
 import (
 	"log/slog"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"go.opentelemetry.io/otel"
@@ -13,6 +16,22 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 )
+
+type bufferPool struct {
+	pool sync.Pool
+}
+
+func (b *bufferPool) Get() []byte {
+	v := b.pool.Get()
+	if p, ok := v.(*[]byte); ok {
+		return *p
+	}
+	return make([]byte, 32*1024)
+}
+
+func (b *bufferPool) Put(buf []byte) {
+	b.pool.Put(&buf)
+}
 
 func SSOProxy(targetURL string, log *slog.Logger) gin.HandlerFunc {
 	target, err := url.Parse(targetURL)
@@ -26,7 +45,29 @@ func SSOProxy(targetURL string, log *slog.Logger) gin.HandlerFunc {
 
 	tracer := otel.GetTracerProvider().Tracer("gateway/sso_proxy")
 	proxy := httputil.NewSingleHostReverseProxy(target)
+	proxy.Transport = &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout:   10 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          100,
+		MaxIdleConnsPerHost:   100,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	}
 	proxy.Director = nil
+
+	proxy.BufferPool = &bufferPool{
+		pool: sync.Pool{
+			New: func() any {
+				b := make([]byte, 32*1024)
+				return &b
+			},
+		},
+	}
 
 	proxy.Rewrite = func(pr *httputil.ProxyRequest) {
 		pr.SetURL(target)

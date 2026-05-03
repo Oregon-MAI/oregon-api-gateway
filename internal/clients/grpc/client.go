@@ -10,6 +10,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/keepalive"
 )
 
 type Client struct {
@@ -32,6 +33,11 @@ func NewGRPCClient(cfg *Config, log *slog.Logger) (*Client, error) {
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
 		grpc.WithChainUnaryInterceptor(cfg.Interceptors...),
+		grpc.WithKeepaliveParams(keepalive.ClientParameters{
+			Time:                30 * time.Second, // Как часто пинговать сервер, если нет активности
+			Timeout:             10 * time.Second, // Время ожидания ответа на пинг
+			PermitWithoutStream: true,             // Пинговать даже если сейчас нет активных запросов
+		}),
 	)
 
 	if err != nil {
