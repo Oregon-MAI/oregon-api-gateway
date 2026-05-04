@@ -2,6 +2,7 @@ package resource
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/OnYyon/oregon-api-gateway/internal/clients/grpc"
 	"github.com/OnYyon/oregon-api-gateway/internal/clients/resource"
@@ -136,7 +137,9 @@ func (s *Service) GetResourcesList(ctx context.Context, types []string) (*resour
 	return resp, nil
 }
 
-func (s *Service) UpdateResource(ctx context.Context, req *resourcev1.UpdateResourceRequest) (*resourcev1.UpdateResourceResponse, error) {
+func (s *Service) UpdateResource(ctx context.Context, dto *resource.UpdateResourceRequestDTO) (*resource.ResourceDTO, error) {
+	req := resource.ToUpdateResourceRequest(dto)
+
 	resp, err := grpc.Call(
 		ctx,
 		s.client.PublicGRPCClient().Conn(),
@@ -147,12 +150,12 @@ func (s *Service) UpdateResource(ctx context.Context, req *resourcev1.UpdateReso
 		func(ctx context.Context, r *resourcev1.UpdateResourceRequest) (*resourcev1.UpdateResourceResponse, error) {
 			return s.client.AdminClient().UpdateResource(ctx, r)
 		}, req)
-
+	fmt.Println(req, "\n", resp)
 	if err != nil {
 		return nil, resource.MapGRPCErr(err)
 	}
 
-	return resp, nil
+	return resource.FromResource(resp.Resource), nil
 }
 
 func (s *Service) DeleteResource(ctx context.Context, resourceID string) (bool, error) {
