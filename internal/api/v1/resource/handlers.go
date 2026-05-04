@@ -184,21 +184,15 @@ func (h *Handler) UpdateResource(c *gin.Context) {
 
 	c.Request = c.Request.WithContext(ctx)
 
-	body, err := io.ReadAll(c.Request.Body)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, map[string]string{"error": "failed to read body"})
-		return
-	}
-
-	var req resourcev1.UpdateResourceRequest
-	if err := protoJSONUnmarshaler.Unmarshal(body, &req); err != nil {
+	var req clientresource.UpdateResourceRequestDTO
+	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body format"})
 		return
 	}
 
 	resourceID := c.Param("id")
 	if resourceID != "" {
-		req.ResourceId = resourceID
+		req.ResourceID = resourceID
 	}
 
 	resp, err := h.service.UpdateResource(ctx, &req)
@@ -208,13 +202,7 @@ func (h *Handler) UpdateResource(c *gin.Context) {
 		return
 	}
 
-	b, err := protoJSONMarshaler.Marshal(resp)
-	if err != nil {
-		h.log.Error("failed to marshal response", slog.Any("error", err))
-		c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
-		return
-	}
-	c.Data(http.StatusOK, "application/json", b)
+	c.JSON(http.StatusOK, resp)
 }
 
 func (h *Handler) DeleteResource(c *gin.Context) {
