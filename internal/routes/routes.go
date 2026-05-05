@@ -17,6 +17,7 @@ import (
 	bookingservice "github.com/OnYyon/oregon-api-gateway/internal/services/booking"
 	resourceservice "github.com/OnYyon/oregon-api-gateway/internal/services/resource"
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func Setup(cfg *config.Config, log *slog.Logger, ssoClient *sso.Client) *http.Server {
@@ -57,8 +58,12 @@ func Setup(cfg *config.Config, log *slog.Logger, ssoClient *sso.Client) *http.Se
 	bookingHandler := booking.NewHandler(bookingSvc, log)
 
 	r.Use(gin.Recovery())
+	r.Use(middlewares.MetricsMiddleware())
 	r.Use(middlewares.Tracing("api-gateway"))
 	r.Use(middlewares.Logging(log))
+
+	// Prometheus metrics endpoint
+	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 	pub_auth := r.Group("/api/v1/auth")
 	{
