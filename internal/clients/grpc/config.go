@@ -6,6 +6,22 @@ import (
 	"google.golang.org/grpc"
 )
 
+var retryPolicy = `{
+		"methodConfig": [{
+			"name": [{"service": ""}],
+			"retryPolicy": {
+				"MaxAttempts": 4,
+				"InitialBackoff": "0.1s",
+				"MaxBackoff": "2s",
+				"BackoffMultiplier": 2.0,
+				"RetryableStatusCodes": [
+					"UNAVAILABLE",
+					"DEADLINE_EXCEEDED"
+				]
+			}
+		}]
+	}`
+
 type Config struct {
 	Target       string
 	Timeout      time.Duration

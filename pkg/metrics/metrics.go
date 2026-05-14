@@ -6,7 +6,6 @@ import (
 )
 
 var (
-	// Traffic: Total number of HTTP requests
 	RequestsTotal = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "http_requests_total",
@@ -15,7 +14,6 @@ var (
 		[]string{"method", "path", "status"},
 	)
 
-	// Latency: Request duration in seconds
 	RequestDuration = promauto.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Name:    "http_request_duration_seconds",
@@ -25,7 +23,6 @@ var (
 		[]string{"method", "path"},
 	)
 
-	// Saturation: Current number of requests being handled (in-flight)
 	InFlightRequests = promauto.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "http_requests_in_flight",

@@ -31,12 +31,13 @@ func NewGRPCClient(cfg *Config, log *slog.Logger) (*Client, error) {
 	conn, err := grpc.NewClient(
 		cfg.Target,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithDefaultServiceConfig(retryPolicy),
 		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
 		grpc.WithChainUnaryInterceptor(cfg.Interceptors...),
 		grpc.WithKeepaliveParams(keepalive.ClientParameters{
-			Time:                30 * time.Second, // Как часто пинговать сервер, если нет активности
-			Timeout:             10 * time.Second, // Время ожидания ответа на пинг
-			PermitWithoutStream: true,             // Пинговать даже если сейчас нет активных запросов
+			Time:                30 * time.Second,
+			Timeout:             10 * time.Second,
+			PermitWithoutStream: true,
 		}),
 	)
 

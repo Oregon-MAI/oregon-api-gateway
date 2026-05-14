@@ -28,6 +28,8 @@ linters:
     - bodyclose
     - contextcheck
     - misspell
+    - noctx
+    - containedctx
 
   settings:
     gocyclo:
@@ -49,8 +51,8 @@ linters:
       strconcat: true
 
     gosec:
-      severity: medium
-      confidence: medium
+      severity: high
+      confidence: high
       excludes:
         - G104
 
