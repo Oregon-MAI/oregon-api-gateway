@@ -23,10 +23,12 @@ type bufferPool struct {
 
 func (b *bufferPool) Get() []byte {
 	v := b.pool.Get()
-	if p, ok := v.(*[]byte); ok {
-		return *p
+	ptr, ok := v.(*[]byte)
+	if !ok || ptr == nil {
+		return make([]byte, 32*1024)
 	}
-	return make([]byte, 32*1024)
+	buf := *ptr
+	return buf[:cap(buf)]
 }
 
 func (b *bufferPool) Put(buf []byte) {
@@ -52,8 +54,8 @@ func SSOProxy(targetURL string, log *slog.Logger) gin.HandlerFunc {
 			KeepAlive: 30 * time.Second,
 		}).DialContext,
 		ForceAttemptHTTP2:     true,
-		MaxIdleConns:          100,
-		MaxIdleConnsPerHost:   100,
+		MaxIdleConns:          1000,
+		MaxIdleConnsPerHost:   1000,
 		IdleConnTimeout:       90 * time.Second,
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,

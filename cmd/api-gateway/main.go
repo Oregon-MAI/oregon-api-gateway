@@ -10,6 +10,9 @@ import (
 	"syscall"
 	"time"
 
+	bookingclient "github.com/OnYyon/oregon-api-gateway/internal/clients/booking"
+	"github.com/OnYyon/oregon-api-gateway/internal/clients/grpc"
+	resourceclient "github.com/OnYyon/oregon-api-gateway/internal/clients/resource"
 	"github.com/OnYyon/oregon-api-gateway/internal/clients/sso"
 	"github.com/OnYyon/oregon-api-gateway/internal/config"
 	"github.com/OnYyon/oregon-api-gateway/internal/routes"
@@ -18,18 +21,28 @@ import (
 	"go.opentelemetry.io/otel"
 )
 
-func main() {
-	cfg := config.MustLoadConfig("./config/local.yml")
+func initTracer(cfg *config.Config, log *slog.Logger) *tracer.Provider {
+	tp, err := tracer.New(context.Background(), &tracer.Config{
+		ServiceName: cfg.Service,
+		EndPoint:    cfg.Trace.EndPoint,
+		Insecure:    cfg.Trace.Insecure,
+		SampleRatio: cfg.Trace.SampleRatio,
+	})
+	if err != nil {
+		log.Error("failed to init tracer", "error", err)
+	}
+	return tp
+}
+
+func initLogger(cfg *config.Config) (*slog.Logger, *os.File, error) {
+	if err := os.MkdirAll("logs", 0755); err != nil {
+		return nil, nil, err
+	}
 
 	f, err := os.OpenFile("logs/app.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
 	if err != nil {
-		panic(err)
+		return nil, nil, err
 	}
-	defer func() {
-		if err := f.Close(); err != nil {
-			slog.Error("failed to close log file", slog.Any("error", err))
-		}
-	}()
 
 	logCfg := &logger.Config{
 		Level:       parseLevel(cfg.Logger.Level),
@@ -42,16 +55,23 @@ func main() {
 	log := logger.New(logCfg)
 	slog.SetDefault(log)
 
-	tp, err := tracer.New(context.Background(), &tracer.Config{
-		ServiceName: cfg.Service,
-		EndPoint:    cfg.Trace.EndPoint,
-		Insecure:    cfg.Trace.Insecure,
-		SampleRatio: cfg.Trace.SampleRatio,
-	})
-	if err != nil {
-		log.Error("faield to init tracer", "error", err)
-	}
+	return log, f, nil
+}
 
+func main() {
+	cfg := config.MustLoadConfig("./config/local.yml")
+
+	log, f, err := initLogger(cfg)
+	if err != nil {
+		panic(err)
+	}
+	defer func() {
+		if err := f.Close(); err != nil {
+			slog.Error("failed to close log file", slog.Any("error", err))
+		}
+	}()
+
+	tp := initTracer(cfg, log)
 	defer func() {
 		if err := tp.Shutdown(context.Background()); err != nil {
 			log.Error("failed to shutdown tracer", "error", err)
@@ -67,7 +87,48 @@ func main() {
 		otel.GetTracerProvider(),
 	)
 
-	srv := routes.Setup(cfg, log, ssoClient)
+	resourceClient, err := resourceclient.NewClient(
+		grpc.NewConfig(
+			grpc.WithTarget(cfg.Resource.PublicTarget),
+			grpc.WithTimeout(cfg.Resource.Timeout),
+			grpc.WithDialTimeout(cfg.Resource.DialTimeout),
+		),
+		grpc.NewConfig(
+			grpc.WithTarget(cfg.Resource.BookingTarget),
+			grpc.WithTimeout(cfg.Resource.Timeout),
+			grpc.WithDialTimeout(cfg.Resource.DialTimeout),
+		),
+		log,
+	)
+	if err != nil {
+		log.Error("failed to create resource client", slog.Any("error", err))
+		os.Exit(1)
+	}
+	defer func() {
+		if err := resourceClient.Close(); err != nil {
+			log.Error("failed to close resource client", slog.Any("error", err))
+		}
+	}()
+
+	bookingClient, err := bookingclient.NewClient(
+		grpc.NewConfig(
+			grpc.WithTarget(cfg.Booking.Target),
+			grpc.WithTimeout(cfg.Booking.Timeout),
+			grpc.WithDialTimeout(cfg.Booking.DialTimeout),
+		),
+		log,
+	)
+	if err != nil {
+		log.Error("failed to create booking client", slog.Any("error", err))
+		os.Exit(1)
+	}
+	defer func() {
+		if err := bookingClient.Close(); err != nil {
+			log.Error("failed to close booking client", slog.Any("error", err))
+		}
+	}()
+
+	srv := routes.Setup(cfg, log, ssoClient, resourceClient, bookingClient)
 
 	go func() {
 		sig := make(chan os.Signal, 1)

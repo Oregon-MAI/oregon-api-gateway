@@ -131,6 +131,12 @@ func (h *Handler) CreateResource(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, map[string]string{"error": "failed to read body"})
 		return
 	}
+	defer func() {
+		err := c.Request.Body.Close()
+		if err != nil {
+			h.log.Warn("failed to close request body", slog.Any("error", err))
+		}
+	}()
 
 	var req resourcev1.CreateResourceRequest
 	if err := protoJSONUnmarshaler.Unmarshal(body, &req); err != nil {
@@ -238,6 +244,12 @@ func (h *Handler) ChangeResourceStatus(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, map[string]string{"error": "failed to read body"})
 		return
 	}
+	defer func() {
+		err := c.Request.Body.Close()
+		if err != nil {
+			h.log.Warn("failed to close request body", slog.Any("error", err))
+		}
+	}()
 
 	var req resourcev1.ChangeResourceStatusRequest
 	if err := protoJSONUnmarshaler.Unmarshal(body, &req); err != nil {
@@ -277,6 +289,12 @@ func (h *Handler) UpdateResourceOccupancy(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, map[string]string{"error": "failed to read body"})
 		return
 	}
+	defer func() {
+		err := c.Request.Body.Close()
+		if err != nil {
+			h.log.Warn("failed to close request body", slog.Any("error", err))
+		}
+	}()
 
 	var req resourcev1.UpdateResourceOccupancyRequest
 	if err := protoJSONUnmarshaler.Unmarshal(body, &req); err != nil {

@@ -9,7 +9,6 @@ import (
 	"github.com/OnYyon/oregon-api-gateway/internal/api/v1/booking"
 	"github.com/OnYyon/oregon-api-gateway/internal/api/v1/resource"
 	bookingclient "github.com/OnYyon/oregon-api-gateway/internal/clients/booking"
-	"github.com/OnYyon/oregon-api-gateway/internal/clients/grpc"
 	resourceclient "github.com/OnYyon/oregon-api-gateway/internal/clients/resource"
 	"github.com/OnYyon/oregon-api-gateway/internal/clients/sso"
 	"github.com/OnYyon/oregon-api-gateway/internal/config"
@@ -20,50 +19,24 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-func Setup(cfg *config.Config, log *slog.Logger, ssoClient *sso.Client) *http.Server {
+func Setup(cfg *config.Config, log *slog.Logger, ssoClient *sso.Client, resourceClient *resourceclient.Client, bookingClient *bookingclient.Client) *http.Server {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
 	ssoProxy := sso.SSOProxy(cfg.SSO.BaseURL, log)
-	resourceClient, err := resourceclient.NewClient(
-		grpc.NewConfig(
-			grpc.WithTarget(cfg.Resource.PublicTarget),
-			grpc.WithTimeout(cfg.Resource.Timeout),
-			grpc.WithDialTimeout(cfg.Resource.DialTimeout),
-		),
-		grpc.NewConfig(
-			grpc.WithTarget(cfg.Resource.BookingTarget),
-			grpc.WithTimeout(cfg.Resource.Timeout),
-			grpc.WithDialTimeout(cfg.Resource.DialTimeout),
-		),
-		log,
-	)
-	if err != nil {
-		log.Error("failed to create resource client", slog.Any("error", err))
-	}
+
 	resourceSvc := resourceservice.NewService(resourceClient)
 	resourceHandler := resource.NewHandler(resourceSvc, log)
 
-	bookingClient, err := bookingclient.NewClient(
-		grpc.NewConfig(
-			grpc.WithTarget(cfg.Booking.Target),
-			grpc.WithTimeout(cfg.Booking.Timeout),
-			grpc.WithDialTimeout(cfg.Booking.DialTimeout),
-		),
-		log,
-	)
-	if err != nil {
-		log.Error("failed to create booking client", slog.Any("error", err))
-	}
 	bookingSvc := bookingservice.NewService(bookingClient)
 	bookingHandler := booking.NewHandler(bookingSvc, log)
 
 	r.Use(gin.Recovery())
-	r.Use(middlewares.MetricsMiddleware())
-	r.Use(middlewares.Tracing("api-gateway"))
 	r.Use(middlewares.Logging(log))
 
-	// Prometheus metrics endpoint
 	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
+
+	r.Use(middlewares.MetricsMiddleware())
+	r.Use(middlewares.Tracing("api-gateway"))
 
 	pub_auth := r.Group("/api/v1/auth")
 	{
